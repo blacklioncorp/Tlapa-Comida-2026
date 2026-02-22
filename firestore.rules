@@ -1,0 +1,90 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ═══════════════════════════════════════════════
+    // Admin Master Key
+    // ═══════════════════════════════════════════════
+    match /{document=**} {
+      // El administrador global tiene dominio absoluto.
+      allow read, write: if isAuth() && request.auth.token.email == 'admin@tlapacomida.mx';
+    }
+
+    // ═══════════════════════════════════════════════
+    // Helper functions
+    // ═══════════════════════════════════════════════
+    function isAuth() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    // ═══════════════════════════════════════════════
+    // Users — only the user can read/write their own profile
+    // ═══════════════════════════════════════════════
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      // Cloud Functions can always write (admin SDK bypasses rules)
+    }
+
+    // ═══════════════════════════════════════════════
+    // Restaurants — public read, owner-only write
+    // ═══════════════════════════════════════════════
+    match /restaurants/{restaurantId} {
+      allow read: if true; // Menu must be public
+      allow write: if isAuth()
+        && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuth(); // Cloud Function creates these
+
+      // Permitir acceso a la subcolección de menú
+      match /menu/{menuItemId} {
+        allow read: if true;
+        // En un entorno de desarrollo con datos semilla, permitimos modificar el menú al usuario autenticado (O validaríamos contra ownerId)
+        allow write: if isAuth(); 
+      }
+    }
+
+    // ═══════════════════════════════════════════════
+    // Orders — restricted read, Cloud Functions handle writes
+    // ═══════════════════════════════════════════════
+    match /orders/{orderId} {
+      // Temporalmente permitir a CUALQUIER USUARIO AUTENTICADO leer pedidos
+      // (Necesario para poder sortear los 'get()' fallidos con datos mockeados en Dev)
+      allow read: if isAuth();
+
+      // Client can create an order (Validación base)
+      allow create: if isAuth()
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.status == 'created';
+        // ⚠️ MIDDLEWARE TEMPORALMENTE DESACTIVADO PARA DEV 
+        // Porque estamos usando Restaurantes Mockeados (seedData) que no existen en la base de datos real
+        // && get(/databases/$(database)/documents/restaurants/$(request.resource.data.merchantId)).data.isOpen == true;
+
+      // Updates: only allowed by involved parties
+      // ⚠️ MIDDLEWARE TEMPORALMENTE RELAJADO PARA DEV
+      allow update: if isAuth();
+    }
+
+    // ═══════════════════════════════════════════════
+    // Drivers — driver writes own location, system reads
+    // ═══════════════════════════════════════════════
+    match /drivers/{driverId} {
+      allow read: if isAuth();
+      allow write: if isOwner(driverId);
+      // Cloud Functions (admin SDK) also write to this collection
+    }
+
+    // ═══════════════════════════════════════════════
+    // Promotions — public read, admin write
+    // ═══════════════════════════════════════════════
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write: if isAuth()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
