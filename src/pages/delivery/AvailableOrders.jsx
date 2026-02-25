@@ -135,16 +135,26 @@ export default function AvailableOrders() {
                             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>Hola, {user.displayName?.split(' ')[0] || 'Carlos M.'}</h2>
                         </div>
                     </div>
-                    <button onClick={toggleOnline} style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '6px 12px', borderRadius: 20, border: 'none',
-                        background: isOnline ? '#10b981' : '#ef4444', color: 'white',
-                        fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'white' }} />
-                        {isOnline ? 'EN LÍNEA' : 'OFFLINE'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <button onClick={logout} style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 36, height: 36, borderRadius: '50%', border: 'none',
+                            background: 'white', color: '#ef4444',
+                            cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                        }} title="Cerrar sesión">
+                            <Power size={18} />
+                        </button>
+                        <button onClick={toggleOnline} style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '6px 12px', borderRadius: 20, border: 'none',
+                            background: isOnline ? '#10b981' : '#ef4444', color: 'white',
+                            fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                        }}>
+                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'white' }} />
+                            {isOnline ? 'EN LÍNEA' : 'OFFLINE'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Earnings Widget */}

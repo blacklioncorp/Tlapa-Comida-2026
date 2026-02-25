@@ -11,6 +11,7 @@ import { ArrowLeft, Minus, Plus, Trash2, MapPin, CreditCard, Banknote, Tag, Aler
 import WeatherBanner from '../../components/WeatherBanner';
 import SmartETADisplay from '../../components/SmartETADisplay';
 import MerchantLoadBadge from '../../components/MerchantLoadBadge';
+import AdvancedLocationPicker from '../../components/AdvancedLocationPicker';
 
 export default function Checkout() {
     const navigate = useNavigate();
@@ -32,14 +33,8 @@ export default function Checkout() {
 
     // Address state
     const defaultAddr = user?.savedAddresses?.[0] || { street: '', colony: '', reference: '' };
-    const [deliveryAddress, setDeliveryAddress] = useState({
-        street: defaultAddr.street || '',
-        colony: defaultAddr.colony || '',
-        reference: defaultAddr.reference || '',
-        label: defaultAddr.label || '',
-        phone: user?.phone || '',
-    });
-    const [showAddressEdit, setShowAddressEdit] = useState(!defaultAddr.street);
+    const [deliveryAddress, setDeliveryAddress] = useState(defaultAddr);
+    const [showAddressPicker, setShowAddressPicker] = useState(!defaultAddr.street);
 
     // Online/Offline detection
     useEffect(() => {
@@ -81,7 +76,7 @@ export default function Checkout() {
     const total = subtotal + deliveryFee + serviceFee - discount;
 
     // Validation
-    const addressValid = deliveryAddress.street.trim().length >= 3 && deliveryAddress.reference.trim().length >= 10;
+    const addressValid = deliveryAddress?.street?.trim().length >= 3;
     const merchantOpen = merchant?.status === 'open' || merchant?.isOpen === true; // Handle both schemas temporarily
     const canSubmit = items.length > 0 && addressValid && merchantOpen && isOnline && !isSubmitting && !loadingMerchant;
 
@@ -294,10 +289,11 @@ export default function Checkout() {
 
                 {/* ═══ Delivery Address ═══ */}
                 <h3 style={{ fontWeight: 700, marginBottom: 12 }}>📍 Dirección de entrega</h3>
-                {!showAddressEdit && deliveryAddress.street ? (
-                    <div style={{
-                        background: 'var(--color-border-light)', borderRadius: 12, padding: 16, marginBottom: 20,
-                    }}>
+
+                <div style={{
+                    background: 'var(--color-border-light)', borderRadius: 12, padding: 16, marginBottom: 20,
+                }}>
+                    {deliveryAddress?.street ? (
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                             <div style={{
                                 width: 40, height: 40, borderRadius: 10,
@@ -307,92 +303,43 @@ export default function Checkout() {
                                 <MapPin size={18} color="var(--color-primary)" />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <p style={{ fontWeight: 700, fontSize: '0.875rem' }}>{deliveryAddress.street}</p>
+                                <p style={{ fontWeight: 700, fontSize: '0.875rem' }}>{deliveryAddress.label || '📍'}: {deliveryAddress.street}</p>
                                 <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                                     {deliveryAddress.colony}
                                 </p>
-                                {deliveryAddress.reference && (
+                                {deliveryAddress.buildingType && (
+                                    <p style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>
+                                        🏙️ {deliveryAddress.buildingType} {deliveryAddress.aptNumber ? `(${deliveryAddress.aptNumber})` : ''} - {deliveryAddress.deliveryMethod}
+                                    </p>
+                                )}
+                                {deliveryAddress.deliveryNotes && (
                                     <p style={{ fontSize: '0.78rem', color: 'var(--color-text-secondary)', marginTop: 4, fontStyle: 'italic' }}>
-                                        📝 {deliveryAddress.reference}
+                                        📝 {deliveryAddress.deliveryNotes}
                                     </p>
                                 )}
                             </div>
-                            <button className="btn btn-sm btn-ghost" onClick={() => setShowAddressEdit(true)} style={{ flexShrink: 0 }}>
+                            <button className="btn btn-sm btn-ghost" onClick={() => setShowAddressPicker(true)} style={{ flexShrink: 0 }}>
                                 <Edit3 size={14} /> Editar
                             </button>
                         </div>
-                    </div>
-                ) : (
-                    <div style={{
-                        background: 'var(--color-border-light)', borderRadius: 12, padding: 16, marginBottom: 20,
-                    }}>
-                        <div className="form-group">
-                            <label className="form-label">Calle y número *</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="Ej: Calle Hidalgo #5"
-                                value={deliveryAddress.street}
-                                onChange={e => setDeliveryAddress(prev => ({ ...prev, street: e.target.value }))}
-                            />
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                            <p style={{ color: 'var(--color-text-muted)', marginBottom: 12 }}>No has agregado una dirección</p>
+                            <button className="btn btn-primary" onClick={() => setShowAddressPicker(true)}>Agregar Dirección</button>
                         </div>
-                        <div className="form-group">
-                            <label className="form-label">Colonia</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="Ej: Centro"
-                                value={deliveryAddress.colony}
-                                onChange={e => setDeliveryAddress(prev => ({ ...prev, colony: e.target.value }))}
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                Referencia *
-                                <span style={{
-                                    fontSize: '0.65rem', color: deliveryAddress.reference.length >= 10 ? 'var(--color-success)' : '#ef4444',
-                                    fontWeight: 400,
-                                }}>
-                                    ({deliveryAddress.reference.length}/10 mín.)
-                                </span>
-                            </label>
-                            <textarea
-                                className="form-input form-textarea"
-                                placeholder="Ej: Casa con portón azul, junto a la papelería"
-                                value={deliveryAddress.reference}
-                                onChange={e => setDeliveryAddress(prev => ({ ...prev, reference: e.target.value }))}
-                                rows={2}
-                                style={{
-                                    borderColor: deliveryAddress.reference.length > 0 && deliveryAddress.reference.length < 10
-                                        ? '#ef4444' : undefined,
-                                }}
-                            />
-                            {deliveryAddress.reference.length > 0 && deliveryAddress.reference.length < 10 && (
-                                <p style={{ color: '#ef4444', fontSize: '0.72rem', marginTop: 4 }}>
-                                    Escribe al menos 10 caracteres para que el repartidor te encuentre
-                                </p>
-                            )}
-                        </div>
-                        <div className="form-group" style={{ marginBottom: 0 }}>
-                            <label className="form-label">Teléfono de contacto</label>
-                            <input
-                                type="tel"
-                                className="form-input"
-                                placeholder="757 123 4567"
-                                value={deliveryAddress.phone}
-                                onChange={e => setDeliveryAddress(prev => ({ ...prev, phone: e.target.value }))}
-                            />
-                        </div>
-                        {deliveryAddress.street.trim().length >= 3 && (
-                            <button
-                                className="btn btn-sm btn-secondary"
-                                style={{ marginTop: 12 }}
-                                onClick={() => setShowAddressEdit(false)}
-                            >
-                                ✓ Guardar dirección
-                            </button>
-                        )}
-                    </div>
+                    )}
+                </div>
+
+                {/* Advanced Address Picker Full Screen Modal */}
+                {showAddressPicker && (
+                    <AdvancedLocationPicker
+                        currentAddress={deliveryAddress?.street ? deliveryAddress : null}
+                        onClose={() => deliveryAddress?.street ? setShowAddressPicker(false) : navigate(-1)}
+                        onSave={(newAddress) => {
+                            setDeliveryAddress(newAddress);
+                            setShowAddressPicker(false);
+                        }}
+                    />
                 )}
 
                 {/* Weather & ETA */}
@@ -494,10 +441,10 @@ export default function Checkout() {
                 </div>
 
                 {/* Validation errors */}
-                {!addressValid && deliveryAddress.street.length > 0 && (
+                {!addressValid && deliveryAddress?.street?.length > 0 && (
                     <div style={{ background: '#fef2f2', borderRadius: 8, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#991b1b' }}>
                         <AlertTriangle size={14} />
-                        Agrega una referencia de al menos 10 caracteres para continuar
+                        Ingresa una dirección válida para continuar.
                     </div>
                 )}
 
