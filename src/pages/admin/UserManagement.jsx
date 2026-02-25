@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Shield, Ban, FileText, Star, X, Phone, Camera, Plus, Key, Bike, Truck, DollarSign, LayoutGrid, Gift, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { db } from '../../firebase';
+import { supabase } from '../../supabase';
 
 // SAMPLE_CLIENTS left intact here...
 const SAMPLE_CLIENTS = [
@@ -37,31 +35,33 @@ export default function UserManagement() {
     const [merchantsList, setMerchantsList] = useState([]);
 
     useEffect(() => {
-        // Fetch Drivers
-        const unsubDrivers = onSnapshot(collection(db, 'drivers'), (snapshot) => {
-            const data = [];
-            snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
-            setDrivers(data);
-        });
+        const fetchUsers = async () => {
+            const { data } = await supabase.from('users').select('*');
+            if (data) {
+                setClients(data.filter(u => u.role === 'client'));
+                setDrivers(data.filter(u => u.role === 'driver'));
+            }
+        };
+        fetchUsers();
 
-        // Fetch Clients
-        const unsubClients = onSnapshot(collection(db, 'users'), (snapshot) => {
-            const data = [];
-            snapshot.forEach(d => {
-                const u = d.data();
-                if (u.role === 'client') data.push({ id: d.id, ...u });
-            });
-            setClients(data);
-        });
+        const channelUsers = supabase.channel('public:users')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => fetchUsers())
+            .subscribe();
 
-        // Use actual merchants database instead of seedData
-        const unsubMerchants = onSnapshot(collection(db, 'restaurants'), (snapshot) => {
-            const data = [];
-            snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
-            setMerchantsList(data);
-        });
+        const fetchMerchants = async () => {
+            const { data } = await supabase.from('merchants').select('id, name');
+            if (data) setMerchantsList(data);
+        };
+        fetchMerchants();
 
-        return () => { unsubDrivers(); unsubClients(); unsubMerchants(); };
+        const channelMerchants = supabase.channel('public:merchants')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'merchants' }, () => fetchMerchants())
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channelUsers);
+            supabase.removeChannel(channelMerchants);
+        };
     }, []);
 
     // ── GESTIÓN KILL SWITCH UNIVERSAL ──
@@ -69,10 +69,10 @@ export default function UserManagement() {
         const action = isCurrentlyBlocked ? "Desbloquear" : "Bloquear";
         if (!window.confirm(`¿Estás seguro de ${action} a este usuario?`)) return;
         try {
-            await updateDoc(doc(db, collectionName, userId), {
+            await supabase.from('users').update({
                 isBlocked: !isCurrentlyBlocked,
                 updatedAt: new Date().toISOString()
-            });
+            }).eq('id', userId);
             alert(`Usuario ${action.toLowerCase()}do exitosamente.`);
         } catch (e) { alert("Error al actualizar estado"); }
     };
@@ -80,10 +80,10 @@ export default function UserManagement() {
     const handleVerifyDriver = async (driverId) => {
         if (!window.confirm("¿Aprobar los documentos de este repartidor para que pueda recibir viajes?")) return;
         try {
-            await updateDoc(doc(db, 'drivers', driverId), {
+            await supabase.from('users').update({
                 isVerified: true,
                 updatedAt: new Date().toISOString()
-            });
+            }).eq('id', driverId);
             alert("Repartidor verificado y aprobado.");
             setIsDrawerOpen(false);
         } catch (e) { alert("Error al verificar."); }
@@ -95,9 +95,11 @@ export default function UserManagement() {
             return;
         }
         try {
-            const functions = getFunctions();
-            const liquidate = httpsCallable(functions, 'liquidateDebt');
-            await liquidate({ driverId: selectedDriver.id, amountPaid: Number(amountPaid) });
+            const newAmount = Math.max(0, (selectedDriver.cashInHand || 0) - Number(amountPaid));
+            await supabase.from('users').update({
+                cashInHand: newAmount
+            }).eq('id', selectedDriver.id);
+
             alert(`Se liquidaron $${amountPaid} exitosamente.`);
             setAmountPaid('');
             setIsDrawerOpen(false);
@@ -111,11 +113,11 @@ export default function UserManagement() {
         if (!selectedDriver) return;
         if (!window.confirm("🚨 ¿MATAR SESIÓN? Esto desconectará al repartidor y le impedirá trabajar y recibir pedidos al instante.")) return;
         try {
-            await updateDoc(doc(db, 'drivers', selectedDriver.id), {
-                isActive: false, // Opcional, dependiendo de la logica global de auth
+            await supabase.from('users').update({
+                isActive: false,
                 isOnline: false,
                 isAvailable: false
-            });
+            }).eq('id', selectedDriver.id);
             alert("Repartidor suspendido y desconectado.");
             setIsDrawerOpen(false);
         } catch (error) {
@@ -125,41 +127,8 @@ export default function UserManagement() {
 
     const handleSaveDriver = async (e) => {
         e.preventDefault();
-        try {
-            // Nota: En producción, lo ideal es crearle Auth account con Cloud Functions, 
-            // aquí solo creamos el Documento Firestore de su Perfil Piloto para Onboarding
-            const newDriverRef = doc(collection(db, 'drivers'));
-            await updateDoc(newDriverRef, {
-                ...driverForm,
-                assignedRestaurantId: driverForm.isExclusive ? driverForm.assignedRestaurantId : null,
-                isVerified: false,
-                isBlocked: false,
-                cashInHand: 0,
-                maxCashLimit: 1000,
-                isOnline: false,
-                isAvailable: false,
-                createdAt: new Date().toISOString()
-            }, { merge: false }).catch(async () => {
-                // Si falla update (no existe), usamos setDoc
-                const { setDoc } = await import('firebase/firestore');
-                await setDoc(newDriverRef, {
-                    ...driverForm,
-                    assignedRestaurantId: driverForm.isExclusive ? driverForm.assignedRestaurantId : null,
-                    isVerified: false,
-                    isBlocked: false,
-                    cashInHand: 0,
-                    maxCashLimit: 1000,
-                    isOnline: false,
-                    isAvailable: false,
-                    createdAt: new Date().toISOString()
-                });
-            });
-            alert("Repartidor registrado. Requiere aprobar sus documentos para operar.");
-            setIsAddDriverOpen(false);
-        } catch (error) {
-            console.error(error);
-            alert("Error al crear repartidor.");
-        }
+        alert("La creación de credenciales de acceso se ha migrado a Supabase Auth. Por favor, crea al repartidor desde el panel de Supabase Auth, y luego edítale los detalles operativos desde aquí o desde la base de datos.");
+        setIsAddDriverOpen(false);
     };
 
     return (

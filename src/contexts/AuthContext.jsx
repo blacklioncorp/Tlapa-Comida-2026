@@ -1,15 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { auth, db } from '../firebase';
-import {
-    signInWithPopup,
-    GoogleAuthProvider,
-    onAuthStateChanged,
-    signOut,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    updateProfile
-} from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../supabase';
 import { SAMPLE_USERS, ALL_USERS } from '../data/seedData';
 
 const AuthContext = createContext(null);
@@ -34,7 +24,7 @@ export function AuthProvider({ children }) {
             id: fbUser.uid,
             email: fbUser.email,
             displayName: fbUser.displayName || legacy?.displayName || 'Usuario',
-            role: legacy?.role || 'client',
+            role: fbUser.email === 'repartidor@ejemplo.com' ? 'driver' : (legacy?.role || 'client'),
             avatarUrl: fbUser.photoURL || '',
             savedAddresses: legacy?.savedAddresses || [],
             phone: fbUser.phoneNumber || legacy?.phone || '',
@@ -46,84 +36,105 @@ export function AuthProvider({ children }) {
     // Fetch and enhance user data from Firestore (background, non-blocking)
     const enhanceWithFirestore = useCallback(async (fbUser, fallbackUser) => {
         try {
-            const userDoc = await withTimeout(getDoc(doc(db, 'users', fbUser.uid)), 5000);
-            if (userDoc.exists()) {
-                const fsData = userDoc.data();
-                setUser(fsData);
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(fsData));
+            const { data: userDoc, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', fbUser.id)
+                .single();
+
+            if (userDoc && !error) {
+                // Dev Hack: Force driver role for the test driver account
+                if (userDoc.email === 'repartidor@ejemplo.com' && userDoc.role !== 'driver') {
+                    userDoc.role = 'driver';
+                    supabase.from('users').update({ role: 'driver' }).eq('id', fbUser.id).catch(console.warn);
+                }
+
+                setUser(userDoc);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(userDoc));
                 return;
             }
         } catch (e) {
-            console.warn('Firestore read skipped:', e.message);
+            console.warn('Supabase DB read skipped:', e.message);
         }
 
-        // No Firestore doc found — try to save one (non-blocking)
+        // No DB doc found — try to save one (non-blocking)
         try {
-            await withTimeout(setDoc(doc(db, 'users', fbUser.uid), fallbackUser), 5000);
+            await supabase.from('users').insert([{ ...fallbackUser, id: fbUser.id }]);
         } catch (e) {
-            console.warn('Firestore write skipped:', e.message);
+            console.warn('Supabase DB write skipped:', e.message);
         }
     }, []);
 
     useEffect(() => {
-        let userUnsubscribe = null;
+        let userSubscription = null;
 
-        const authUnsubscribe = onAuthStateChanged(auth, (fbUser) => {
-            if (fbUser) {
+        const checkSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            handleAuthChange(session?.user || null);
+        };
+
+        const handleAuthChange = async (sbUser) => {
+            if (sbUser) {
                 // Background listener for universal block (Kill Switch) and real-time updates
-                userUnsubscribe = onSnapshot(doc(db, 'users', fbUser.uid), (docSnap) => {
-                    if (docSnap.exists()) {
-                        const fsData = docSnap.data();
+                userSubscription = supabase.channel(`public:users:id=eq.${sbUser.id}`)
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${sbUser.id}` }, (payload) => {
+                        const fsData = payload.new;
                         if (fsData.isBlocked) {
-                            signOut(auth);
+                            supabase.auth.signOut();
                             setUser(null);
                             localStorage.removeItem(STORAGE_KEY);
                             alert("Cuenta suspendida. Para más información contacta a soporte.");
                             return;
                         }
-                        // Keep cache in sync with firestore
+                        // Keep cache in sync with DB
                         setUser(fsData);
                         localStorage.setItem(STORAGE_KEY, JSON.stringify(fsData));
                         setLoading(false);
-                    }
-                }, (error) => {
-                    console.warn("Realtime user sync failed (might be permission):", error.message);
-                });
+                    }).subscribe();
 
                 // 1) Check localStorage cache first (instant)
                 try {
                     const cached = localStorage.getItem(STORAGE_KEY);
                     if (cached) {
                         const parsed = JSON.parse(cached);
-                        if (parsed.id === fbUser.uid) {
+                        if (parsed.id === sbUser.id) {
+                            if (parsed.email === 'repartidor@ejemplo.com') parsed.role = 'driver';
                             setUser(parsed);
                             setLoading(false);
-                            // Still try to sync with Firestore in background (initial read)
-                            enhanceWithFirestore(fbUser, parsed);
+                            // Still try to sync with DB in background (initial read)
+                            enhanceWithFirestore(sbUser, parsed);
                             return;
                         }
                     }
                 } catch (e) { /* ignore parse errors */ }
 
-                // 2) Build basic user from Firebase Auth + seed data (instant)
-                const basicUser = buildBasicUser(fbUser);
+                // 2) Build basic user from Auth + seed data (instant)
+                const basicUser = buildBasicUser(sbUser);
                 setUser(basicUser);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(basicUser));
                 setLoading(false);
 
-                // 3) Enhance with Firestore data in background (non-blocking)
-                enhanceWithFirestore(fbUser, basicUser);
+                // 3) Enhance with DB data in background (non-blocking)
+                enhanceWithFirestore(sbUser, basicUser);
             } else {
-                if (userUnsubscribe) userUnsubscribe();
+                if (userSubscription) supabase.removeChannel(userSubscription);
                 setUser(null);
                 localStorage.removeItem(STORAGE_KEY);
                 setLoading(false);
             }
-        });
+        };
+
+        checkSession();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                handleAuthChange(session?.user || null);
+            }
+        );
 
         return () => {
-            authUnsubscribe();
-            if (userUnsubscribe) userUnsubscribe();
+            subscription.unsubscribe();
+            if (userSubscription) supabase.removeChannel(userSubscription);
         };
     }, [buildBasicUser, enhanceWithFirestore]);
 
@@ -142,17 +153,14 @@ export function AuthProvider({ children }) {
     // Login with email + password
     const login = async (email, password) => {
         try {
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            // onAuthStateChanged will handle setting the user
-            return { success: true, user: userCredential.user };
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+            return { success: true, user: data.user };
         } catch (error) {
             console.error("Login error:", error);
             let message = 'Error al iniciar sesión';
-            if (error.code === 'auth/user-not-found') message = 'No existe una cuenta con ese correo';
-            if (error.code === 'auth/wrong-password') message = 'Contraseña incorrecta';
-            if (error.code === 'auth/invalid-credential') message = 'Correo o contraseña incorrectos';
-            if (error.code === 'auth/invalid-email') message = 'El correo no es válido';
-            if (error.code === 'auth/too-many-requests') message = 'Demasiados intentos. Intenta más tarde';
+            if (error.message.includes('Invalid login credentials')) message = 'Correo o contraseña incorrectos';
+            if (error.message.includes('fetch')) message = 'Error de red. Verifica tu conexión.';
             return { success: false, error: message };
         }
     };
@@ -160,15 +168,12 @@ export function AuthProvider({ children }) {
     // Login with Google
     const loginWithGoogle = async () => {
         try {
-            const provider = new GoogleAuthProvider();
-            const result = await signInWithPopup(auth, provider);
-            return { success: true, user: result.user };
+            const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+            if (error) throw error;
+            return { success: true };
         } catch (error) {
             console.error("Google Login error:", error);
-            let message = 'Fallo la conexión con Google';
-            if (error.code === 'auth/popup-closed-by-user') message = 'Cerraste la ventana de Google';
-            if (error.code === 'auth/cancelled-popup-request') message = 'Solicitud cancelada';
-            return { success: false, error: message };
+            return { success: false, error: 'Fallo la conexión con Google' };
         }
     };
 
@@ -176,17 +181,22 @@ export function AuthProvider({ children }) {
     const register = async (userData) => {
         try {
             const { email, password, displayName, role, phone } = userData;
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const fbUser = userCredential.user;
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        displayName,
+                        role: role || 'client'
+                    }
+                }
+            });
 
-            try {
-                await updateProfile(fbUser, { displayName });
-            } catch (e) {
-                console.warn('Profile update failed:', e.message);
-            }
+            if (error) throw error;
+            const sbUser = data.user;
 
             const newUserData = {
-                id: fbUser.uid,
+                id: sbUser.id,
                 email,
                 displayName,
                 role: role || 'client',
@@ -197,31 +207,30 @@ export function AuthProvider({ children }) {
                 createdAt: new Date().toISOString(),
             };
 
-            // Set user immediately (don't wait for Firestore)
+            // Set user immediately
             setUser(newUserData);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(newUserData));
 
-            // Save to Firestore in background
+            // Save to DB in background
             try {
-                await withTimeout(setDoc(doc(db, 'users', fbUser.uid), newUserData), 5000);
+                await supabase.from('users').insert([newUserData]);
             } catch (e) {
-                console.warn('Firestore save on register failed:', e.message);
+                console.warn('DB save on register failed:', e.message);
             }
 
             return { success: true, user: newUserData };
         } catch (error) {
             console.error("Registration error:", error);
             let message = 'Error al crear la cuenta';
-            if (error.code === 'auth/email-already-in-use') message = 'Ya existe una cuenta con ese correo';
-            if (error.code === 'auth/weak-password') message = 'La contraseña debe tener al menos 6 caracteres';
-            if (error.code === 'auth/invalid-email') message = 'El correo electrónico no es válido';
+            if (error.message.includes('already registered')) message = 'Ya existe una cuenta con ese correo';
+            if (error.message.includes('weak_password')) message = 'La contraseña debe tener al menos 6 caracteres';
             return { success: false, error: message };
         }
     };
 
     const logout = async () => {
         try {
-            await signOut(auth);
+            await supabase.auth.signOut();
         } catch (e) {
             console.warn('Sign out error:', e.message);
         }
@@ -236,11 +245,11 @@ export function AuthProvider({ children }) {
         setUser(updatedUser);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUser));
 
-        // Persist to Firestore in background
+        // Persist to DB in background
         try {
-            await withTimeout(updateDoc(doc(db, 'users', user.id), updates), 5000);
+            await supabase.from('users').update(updates).eq('id', user.id);
         } catch (e) {
-            console.warn("Firestore update failed:", e.message);
+            console.warn("DB update failed:", e.message);
         }
     };
 

@@ -5,7 +5,7 @@ import { useOrders } from '../../contexts/OrderContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSmartDelivery } from '../../contexts/SmartDeliveryContext';
 import { usePromotions } from '../../contexts/PromotionContext';
-import { MERCHANTS, getMerchants } from '../../data/seedData';
+import { supabase } from '../../supabase';
 import { adjustedDeliveryFee } from '../../services/WeatherService';
 import { ArrowLeft, Minus, Plus, Trash2, MapPin, CreditCard, Banknote, Tag, AlertTriangle, WifiOff, Edit3 } from 'lucide-react';
 import WeatherBanner from '../../components/WeatherBanner';
@@ -53,8 +53,27 @@ export default function Checkout() {
         };
     }, []);
 
-    const allMerchants = getMerchants();
-    const merchant = allMerchants.find(m => m.id === merchantId) || MERCHANTS.find(m => m.id === merchantId);
+    // Merchant state
+    const [merchant, setMerchant] = useState(null);
+    const [loadingMerchant, setLoadingMerchant] = useState(true);
+
+    // Fetch live merchant data
+    useEffect(() => {
+        const fetchMerchant = async () => {
+            if (!merchantId) return;
+            try {
+                const { data, error } = await supabase.from('merchants').select('*').eq('id', merchantId).single();
+                if (error) throw error;
+                setMerchant(data);
+            } catch (err) {
+                console.error("Failed to fetch merchant for checkout:", err);
+            } finally {
+                setLoadingMerchant(false);
+            }
+        };
+        fetchMerchant();
+    }, [merchantId]);
+
     const baseDeliveryFee = merchant?.deliveryFee || 20;
     const deliveryFee = isRaining ? adjustedDeliveryFee(baseDeliveryFee, weather?.condition) : baseDeliveryFee;
     const weatherSurcharge = deliveryFee - baseDeliveryFee;
@@ -63,8 +82,8 @@ export default function Checkout() {
 
     // Validation
     const addressValid = deliveryAddress.street.trim().length >= 3 && deliveryAddress.reference.trim().length >= 10;
-    const merchantOpen = merchant?.isOpen !== false;
-    const canSubmit = items.length > 0 && addressValid && merchantOpen && isOnline && !isSubmitting;
+    const merchantOpen = merchant?.status === 'open' || merchant?.isOpen === true; // Handle both schemas temporarily
+    const canSubmit = items.length > 0 && addressValid && merchantOpen && isOnline && !isSubmitting && !loadingMerchant;
 
     const applyCoupon = () => {
         if (!couponCode.trim()) return;
@@ -100,11 +119,11 @@ export default function Checkout() {
         setSubmitError('');
 
         try {
-            // Verify merchant is still open
-            const freshMerchants = getMerchants();
-            const freshMerchant = freshMerchants.find(m => m.id === merchantId);
-            if (freshMerchant && freshMerchant.isOpen === false) {
-                setSubmitError(`Lo sentimos, ${freshMerchant.name} acaba de cerrar. Tu carrito se mantiene guardado.`);
+            // Verify merchant is still open natively in Supabase
+            const { data: freshMerchant, error: merchantError } = await supabase.from('merchants').select('status, isOpen, name').eq('id', merchantId).single();
+
+            if (merchantError || (freshMerchant.status !== 'open' && freshMerchant.isOpen === false)) {
+                setSubmitError(`Lo sentimos, el restaurante acaba de cerrar. Tu carrito se mantiene guardado.`);
                 setIsSubmitting(false);
                 return;
             }

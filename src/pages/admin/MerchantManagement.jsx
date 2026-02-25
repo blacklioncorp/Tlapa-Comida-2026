@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getCategories } from '../../data/seedData';
-import { db, secondaryAuth } from '../../firebase';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signOut, setPersistence, inMemoryPersistence } from 'firebase/auth';
+import { supabase } from '../../supabase';
 import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Star, Edit2, Trash2, X, Save, Camera, Key, DollarSign, LayoutGrid, Gift } from 'lucide-react';
 import ImageUpload from '../../components/ImageUpload';
 
@@ -20,12 +18,19 @@ export default function MerchantManagement() {
     const categories = getCategories();
 
     useEffect(() => {
-        const unsub = onSnapshot(collection(db, 'restaurants'), (snapshot) => {
-            const data = [];
-            snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
-            setMerchants(data);
-        });
-        return () => unsub();
+        const fetchMerchants = async () => {
+            const { data } = await supabase.from('merchants').select('*');
+            if (data) setMerchants(data);
+        };
+        fetchMerchants();
+
+        const channel = supabase.channel('public:merchants')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'merchants' }, () => {
+                fetchMerchants();
+            })
+            .subscribe();
+
+        return () => supabase.removeChannel(channel);
     }, []);
 
     const [form, setForm] = useState({
@@ -85,62 +90,24 @@ export default function MerchantManagement() {
             const { loginEmail, loginPassword, ...merchantData } = form;
             let merchantId = editingMerchant?.id;
 
+            if (loginEmail && loginPassword) {
+                alert("La creación de credenciales de acceso se ha migrado a Supabase Auth y requiere un entorno seguro (Edge Function). Por favor, crea las credenciales desde el panel de Supabase. El perfil del comercio se guardará a continuación.");
+            }
+
             if (!merchantId) {
                 merchantId = `merchant-${Date.now()}`;
-
-                if (loginEmail && loginPassword) {
-                    try {
-                        await setPersistence(secondaryAuth, inMemoryPersistence);
-                        const creds = await createUserWithEmailAndPassword(secondaryAuth, loginEmail, loginPassword);
-                        await setDoc(doc(db, 'users', creds.user.uid), {
-                            id: creds.user.uid,
-                            email: loginEmail,
-                            displayName: merchantData.name,
-                            role: 'merchant',
-                            merchantId: merchantId,
-                            createdAt: new Date().toISOString(),
-                            isActive: true,
-                            isBlocked: false,
-                        });
-                        await signOut(secondaryAuth);
-                    } catch (authErr) {
-                        alert("Error creando credenciales: " + authErr.message);
-                        setIsSaving(false);
-                        return;
-                    }
-                }
-
-                await setDoc(doc(db, 'restaurants', merchantId), {
+                const { error } = await supabase.from('merchants').insert([{
+                    id: merchantId,
                     ...merchantData,
                     createdAt: new Date().toISOString()
-                });
+                }]);
+                if (error) throw error;
             } else {
-                if (loginEmail && loginPassword) {
-                    try {
-                        await setPersistence(secondaryAuth, inMemoryPersistence);
-                        const creds = await createUserWithEmailAndPassword(secondaryAuth, loginEmail, loginPassword);
-                        await setDoc(doc(db, 'users', creds.user.uid), {
-                            id: creds.user.uid,
-                            email: loginEmail,
-                            displayName: merchantData.name,
-                            role: 'merchant',
-                            merchantId: merchantId,
-                            createdAt: new Date().toISOString(),
-                            isActive: true,
-                            isBlocked: false,
-                        });
-                        await signOut(secondaryAuth);
-                    } catch (authErr) {
-                        alert("Error creando credenciales: " + authErr.message);
-                        setIsSaving(false);
-                        return;
-                    }
-                }
-
-                await updateDoc(doc(db, 'restaurants', merchantId), {
+                const { error } = await supabase.from('merchants').update({
                     ...merchantData,
                     updatedAt: new Date().toISOString()
-                });
+                }).eq('id', merchantId);
+                if (error) throw error;
             }
 
             setIsModalOpen(false);
@@ -154,7 +121,8 @@ export default function MerchantManagement() {
 
     const handleDelete = async (id) => {
         if (window.confirm('¿Estás seguro de eliminar este comercio?')) {
-            await deleteDoc(doc(db, 'restaurants', id));
+            const { error } = await supabase.from('merchants').delete().eq('id', id);
+            if (error) alert("Error eliminando comercio: " + error.message);
         }
     };
 

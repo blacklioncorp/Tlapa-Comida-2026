@@ -1,19 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { db } from '../firebase';
-import {
-    collection,
-    addDoc,
-    updateDoc,
-    doc,
-    onSnapshot,
-    query,
-    where,
-    orderBy,
-    limit,
-    serverTimestamp,
-    runTransaction
-} from 'firebase/firestore';
-import { MERCHANTS } from '../data/seedData';
+import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
 
 const OrderContext = createContext(null);
@@ -26,7 +12,8 @@ const VALID_TRANSITIONS = {
     'confirmed': ['preparing', 'cancelled'],
     'preparing': ['ready', 'cancelled'],
     'ready': ['searching_driver'],
-    'searching_driver': ['picked_up', 'cancelled'],
+    'searching_driver': ['assigned_to_driver', 'picked_up', 'cancelled'],
+    'assigned_to_driver': ['picked_up', 'cancelled'],
     'picked_up': ['on_the_way'],
     'on_the_way': ['delivered'],
     'delivered': [],
@@ -39,6 +26,7 @@ const TRANSITION_PERMISSIONS = {
     'preparing': ['merchant', 'admin'],
     'ready': ['merchant', 'admin'],
     'searching_driver': ['system', 'admin'],
+    'assigned_to_driver': ['driver', 'admin'],
     'picked_up': ['driver', 'admin'],
     'on_the_way': ['driver', 'admin'],
     'delivered': ['driver', 'admin'],
@@ -81,7 +69,7 @@ export function OrderProvider({ children }) {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Sync orders from Firestore — optimized per role to minimize reads
+    // Sync orders from Supabase — optimized per role
     useEffect(() => {
         if (!user) {
             setOrders([]);
@@ -89,68 +77,71 @@ export function OrderProvider({ children }) {
             return;
         }
 
-        let unsubscribe = null;
+        let subscription = null;
 
-        const buildQuery = () => {
+        const fetchInitialOrders = async () => {
+            let query = supabase.from('orders').select('*').order('createdAt', { ascending: false });
+
             if (user.role === 'admin') {
-                // Admin sees recent orders (limit to keep reads manageable)
-                return query(collection(db, 'orders'), orderBy('createdAt', 'desc'), limit(100));
+                query = query.limit(100);
             } else if (user.role === 'merchant') {
-                // Merchant: only their orders, only active statuses
-                return query(
-                    collection(db, 'orders'),
-                    where('merchantId', '==', user.merchantId),
-                    orderBy('createdAt', 'desc'),
-                    limit(50)
-                );
+                query = query.eq('merchantId', user.merchantId).limit(50);
             } else if (user.role === 'driver') {
-                // Driver: only orders available for pickup + their active order
-                return query(
-                    collection(db, 'orders'),
-                    where('status', 'in', ['searching_driver', 'picked_up', 'on_the_way']),
-                    orderBy('createdAt', 'desc'),
-                    limit(20)
-                );
+                query = query.in('status', ['searching_driver', 'assigned_to_driver', 'picked_up', 'on_the_way', 'delivered']).limit(50);
             } else {
-                // Client: only their own orders
-                return query(
-                    collection(db, 'orders'),
-                    where('clientId', '==', user.id),
-                    orderBy('createdAt', 'desc'),
-                    limit(20)
-                );
+                query = query.eq('clientId', user.id).limit(20);
             }
+
+            const { data, error } = await query;
+            if (data && !error) {
+                setOrders(data);
+            } else if (error) {
+                console.warn('[OrderContext] Fetch error:', error.message);
+            }
+            setLoading(false);
         };
 
         const startListening = () => {
-            if (unsubscribe) return; // already listening
-            const q = buildQuery();
-            unsubscribe = onSnapshot(q, (snapshot) => {
-                const ordersData = snapshot.docs.map(d => ({
-                    id: d.id,
-                    ...d.data(),
-                    createdAt: d.data().createdAt?.toDate?.()?.toISOString() || d.data().createdAt || new Date().toISOString(),
-                    updatedAt: d.data().updatedAt?.toDate?.()?.toISOString() || d.data().updatedAt || new Date().toISOString(),
-                }));
-                setOrders(ordersData);
-                setLoading(false);
-            }, (err) => {
-                console.warn('[OrderContext] Listener error:', err.message);
-                setLoading(false);
-            });
+            if (subscription) return;
+
+            subscription = supabase.channel('public:orders')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
+                    // Update state optimistically based on incoming change
+                    setOrders(current => {
+                        const modifiedOrder = payload.new;
+                        if (payload.eventType === 'INSERT') {
+                            // Filter for current user context loosely to save re-fetches
+                            if (user.role === 'client' && modifiedOrder.clientId !== user.id) return current;
+                            if (user.role === 'merchant' && modifiedOrder.merchantId !== user.merchantId) return current;
+
+                            // Prevent duplicates
+                            if (current.find(o => o.id === modifiedOrder.id)) return current;
+                            return [modifiedOrder, ...current];
+                        }
+                        if (payload.eventType === 'UPDATE') {
+                            return current.map(o => o.id === modifiedOrder.id ? modifiedOrder : o);
+                        }
+                        return current;
+                    });
+                })
+                .subscribe((status, err) => {
+                    if (err) console.warn('[OrderContext] Supabase sync error:', err);
+                });
         };
 
         const stopListening = () => {
-            if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+            if (subscription) {
+                supabase.removeChannel(subscription);
+                subscription = null;
+            }
         };
 
-        // Pause listener when tab is hidden to save reads
         const handleVisibility = () => {
             document.hidden ? stopListening() : startListening();
         };
 
+        fetchInitialOrders().then(() => startListening());
         document.addEventListener('visibilitychange', handleVisibility);
-        startListening();
 
         return () => {
             stopListening();
@@ -203,12 +194,13 @@ export function OrderProvider({ children }) {
                 { status: 'created', timestamp: new Date().toISOString(), actor: clientId }
             ],
             cancelReason: null,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
         };
 
-        const docRef = await addDoc(collection(db, 'orders'), orderData);
-        return { id: docRef.id, ...orderData };
+        const { error, data } = await supabase.from('orders').insert([orderData]).select().single();
+        if (error) throw error;
+        return data;
     };
 
     // ═══════════════════════════════════════════════
@@ -221,7 +213,6 @@ export function OrderProvider({ children }) {
         // Validate FSM transition
         validateTransition(order.status, newStatus);
 
-        const orderRef = doc(db, 'orders', orderId);
         const now = new Date().toISOString();
 
         // Build timestamp field name
@@ -238,71 +229,75 @@ export function OrderProvider({ children }) {
 
         const updateData = {
             status: newStatus,
-            updatedAt: serverTimestamp(),
+            updatedAt: now,
             statusHistory: [
                 ...(order.statusHistory || []),
                 { status: newStatus, timestamp: now, actor: actorId }
             ],
         };
 
-        // Set specific timestamp
+        // Set specific timestamp (note: in Supabase we might keep timestamps inside a JSONB column or separate. We'll merge JSON)
+        // Since `timestamps` is probably a JSONB object, depending on how it's structured, we might need to pull and modify it:
+        const mergedTimestamps = { ...(order.timestamps || {}) };
         const tsField = timestampMap[newStatus];
         if (tsField) {
-            updateData[`timestamps.${tsField}`] = now;
+            mergedTimestamps[tsField] = now;
         }
+        updateData.timestamps = mergedTimestamps;
 
         // If delivered and cash payment, mark as collected
+        const mergedPayment = { ...(order.payment || {}) };
         if (newStatus === 'delivered' && order.payment?.method === 'cash') {
-            updateData['payment.status'] = 'collected';
-            updateData['payment.paidAt'] = now;
+            mergedPayment.status = 'collected';
+            mergedPayment.paidAt = now;
         }
+        updateData.payment = mergedPayment;
 
-        await updateDoc(orderRef, updateData);
+        await supabase.from('orders').update(updateData).eq('id', orderId);
     };
 
     // ═══════════════════════════════════════════════
-    // Accept Order (Seguridad de Concurrencia con Transaction)
+    // Accept Order (Concurrency Security via Optimized Update)
     // ═══════════════════════════════════════════════
     const acceptOrder = async (orderId, driverId) => {
-        const orderRef = doc(db, 'orders', orderId);
-
         try {
-            await runTransaction(db, async (transaction) => {
-                const orderDoc = await transaction.get(orderRef);
-                if (!orderDoc.exists()) {
-                    throw new Error("El pedido ya no existe.");
-                }
+            // Lock optimism: we update only if status is searching_driver and driverId is null
+            const now = new Date().toISOString();
 
-                const data = orderDoc.data();
+            // First get the latest state of the order to access its history
+            const order = orders.find(o => o.id === orderId);
+            if (!order) throw new Error("Pedido no encontrado localmente.");
 
-                // Validación Crítica: Si ya no está buscando repartidor o ya tiene asignado a otro, fallar.
-                if (data.status !== 'searching_driver' || data.driverId) {
-                    throw new Error("Este pedido ya fue tomado por otro repartidor.");
-                }
-
-                const now = new Date().toISOString();
-                const history = [...(data.statusHistory || [])];
-
-                // Añadimos el nuevo estado al historial
-                history.push({
-                    status: 'assigned_to_driver', // Usando tu flujo mencionado
-                    timestamp: now,
-                    actor: driverId
-                });
-
-                // Ejecutamos la transacción bloqueando el pedido para los demás
-                transaction.update(orderRef, {
-                    driverId: driverId,
-                    status: 'assigned_to_driver',
-                    updatedAt: serverTimestamp(),
-                    statusHistory: history,
-                    'timestamps.assignedToDriverAt': now,
-                });
+            const history = [...(order.statusHistory || [])];
+            history.push({
+                status: 'assigned_to_driver',
+                timestamp: now,
+                actor: driverId
             });
 
-            console.log("¡Pedido aceptado exitosamente con seguridad transaccional!");
+            const mergedTimestamps = { ...(order.timestamps || {}), assignedToDriverAt: now };
+
+            // Ejecutamos el update condicional en Supabase para evitar carrera de datos
+            const { data, error } = await supabase.from('orders').update({
+                driverId: driverId,
+                status: 'assigned_to_driver',
+                updatedAt: now,
+                statusHistory: history,
+                timestamps: mergedTimestamps
+            })
+                .eq('id', orderId)
+                .eq('status', 'searching_driver')
+                .is('driverId', null)
+                .select();
+
+            if (error) throw error;
+            if (!data || data.length === 0) {
+                throw new Error("Este pedido ya fue tomado por otro repartidor.");
+            }
+
+            console.log("¡Pedido aceptado exitosamente con seguridad condicional!");
         } catch (error) {
-            console.error("Transacción fallida: ", error);
+            console.error("Error al aceptar pedido: ", error);
             throw error; // Lanzamos al frontend para mostrar la alerta
         }
     };
@@ -320,40 +315,40 @@ export function OrderProvider({ children }) {
             throw new Error(`No se puede cancelar un pedido en estado: ${order.status}`);
         }
 
-        const orderRef = doc(db, 'orders', orderId);
         const now = new Date().toISOString();
+        const mergedTimestamps = { ...(order.timestamps || {}), cancelledAt: now };
 
-        await updateDoc(orderRef, {
+        await supabase.from('orders').update({
             status: 'cancelled',
             cancelReason: reason,
-            updatedAt: serverTimestamp(),
-            'timestamps.cancelledAt': now,
+            updatedAt: now,
+            timestamps: mergedTimestamps,
             statusHistory: [
                 ...(order.statusHistory || []),
                 { status: 'cancelled', timestamp: now, actor: actorId, reason }
-            ],
-        });
+            ]
+        }).eq('id', orderId);
     };
 
     // ═══════════════════════════════════════════════
     // Record cash payment (driver registers amount received)
     // ═══════════════════════════════════════════════
     const recordCashPayment = async (orderId, amountReceived) => {
-        const orderRef = doc(db, 'orders', orderId);
-        await updateDoc(orderRef, {
-            'payment.cashCollected': amountReceived,
-            'payment.status': 'collected',
-            'payment.paidAt': new Date().toISOString(),
-            updatedAt: serverTimestamp(),
-        });
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
+        const mergedPayment = { ...(order.payment || {}), cashCollected: amountReceived, status: 'collected', paidAt: new Date().toISOString() };
+
+        await supabase.from('orders').update({
+            payment: mergedPayment,
+            updatedAt: new Date().toISOString(),
+        }).eq('id', orderId);
     };
 
     const rateOrder = async (orderId, rating) => {
-        const orderRef = doc(db, 'orders', orderId);
-        await updateDoc(orderRef, {
+        await supabase.from('orders').update({
             rating,
-            updatedAt: serverTimestamp()
-        });
+            updatedAt: new Date().toISOString()
+        }).eq('id', orderId);
     };
 
     const getOrdersByRole = (userId, role) => {
@@ -361,8 +356,7 @@ export function OrderProvider({ children }) {
             case 'client':
                 return orders.filter(o => o.clientId === userId);
             case 'merchant': {
-                const merchant = MERCHANTS.find(m => m.ownerId === userId);
-                return merchant ? orders.filter(o => o.merchantId === merchant.id) : [];
+                return orders.filter(o => o.merchantId === user?.merchantId);
             }
             case 'driver':
                 return orders.filter(o => o.driverId === userId ||

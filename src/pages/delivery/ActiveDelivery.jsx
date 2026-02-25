@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../contexts/OrderContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { MERCHANTS, getMerchants } from '../../data/seedData';
-import { ArrowLeft, Navigation, Phone, MessageCircle, MapPin, Check, DollarSign, Package, ChevronRight, ExternalLink } from 'lucide-react';
+import { supabase } from '../../supabase';
+import { ArrowLeft, Navigation, Phone, MessageCircle, MapPin, Check, DollarSign, Package, ChevronRight, ExternalLink, ShieldAlert } from 'lucide-react';
 import DeliveryMap from '../../components/DeliveryMap';
 
 export default function ActiveDelivery() {
@@ -18,40 +18,30 @@ export default function ActiveDelivery() {
     const [cashAmount, setCashAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // Merchant state
+    const [merchant, setMerchant] = useState(null);
+
+    useEffect(() => {
+        if (order?.merchantId) {
+            supabase.from('merchants').select('*').eq('id', order.merchantId).single()
+                .then(({ data }) => setMerchant(data))
+                .catch(console.error);
+        }
+    }, [order?.merchantId]);
+
     if (!order) return <div className="app-container"><div className="loading-page"><div className="spinner" /></div></div>;
 
-    const allMerchants = getMerchants();
-    const merchant = allMerchants.find(m => m.id === order.merchantId) || MERCHANTS.find(m => m.id === order.merchantId);
     const isDelivered = order.status === 'delivered';
     const isCash = order.payment?.method === 'cash';
-
-    // Build Google Maps navigation URL
-    const getGoogleMapsUrl = (coords, label) => {
-        if (coords?.lat && coords?.lng) {
-            return `https://www.google.com/maps/dir/?api=1&destination=${coords.lat},${coords.lng}`;
-        }
-        if (label) {
-            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(label + ', Tlapa de Comonfort, Guerrero')}`;
-        }
-        return null;
-    };
-
-    // Build WhatsApp share location URL
-    const getWhatsAppLocationUrl = () => {
-        const addr = order.deliveryAddress;
-        const phone = addr?.phone || '';
-        const text = `📍 Hola, soy tu repartidor de Tlapa Comida. Estoy en camino con tu pedido ${order.orderNumber}. Mi ubicación actual:`;
-        return `https://wa.me/${phone ? '52' + phone : ''}?text=${encodeURIComponent(text)}`;
-    };
 
     // Get client contact
     const clientPhone = order.deliveryAddress?.phone || '';
 
+    // Action flow handler
     const handleStatusUpdate = async (newStatus) => {
         if (isProcessing) return;
         setIsProcessing(true);
         try {
-            // If delivering a cash order, show cash modal first
             if (newStatus === 'delivered' && isCash && order.payment?.status !== 'collected') {
                 setShowCashModal(true);
                 setIsProcessing(false);
@@ -59,9 +49,6 @@ export default function ActiveDelivery() {
             }
 
             await updateOrderStatus(orderId, newStatus, user?.id || 'driver');
-            if (newStatus === 'delivered') {
-                setTimeout(() => navigate('/delivery'), 1500);
-            }
         } catch (err) {
             alert('Error: ' + err.message);
         }
@@ -79,339 +66,208 @@ export default function ActiveDelivery() {
             await recordCashPayment(orderId, amount);
             await updateOrderStatus(orderId, 'delivered', user?.id || 'driver');
             setShowCashModal(false);
-            setTimeout(() => navigate('/delivery'), 1500);
         } catch (err) {
             alert('Error: ' + err.message);
         }
         setIsProcessing(false);
     };
 
-    // FSM-aware action buttons
-    const getActionButton = () => {
+    // Determine current phase and button text
+    const getActionData = () => {
         switch (order.status) {
+            case 'assigned':
+            case 'searching_driver': // just in case
+                return { label: 'LLEGUÉ AL RESTAURANTE', next: 'picked_up', instruction: 'Dirígete al restaurante', dest: merchant?.name };
             case 'picked_up':
-                return { label: '🚀 En camino al cliente', next: 'on_the_way', color: '#2563eb' };
+                return { label: 'COMENZAR VIAJE', next: 'on_the_way', instruction: 'Recolecta el pedido', dest: merchant?.name };
             case 'on_the_way':
-                return { label: '✅ He entregado el pedido', next: 'delivered', color: '#16a34a' };
+                return { label: 'ENTREGAR PEDIDO', next: 'delivered', instruction: 'Dirígete al cliente', dest: order.deliveryAddress?.street || 'Cliente' };
             default:
-                return null;
+                return { label: 'ENTREGADO', next: null, instruction: 'Pedido completado', dest: '' };
         }
     };
+    const actionData = getActionData();
 
-    const actionButton = getActionButton();
+    // Render Success View
+    if (isDelivered) {
+        return (
+            <div className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8fafc' }}>
+                <div style={{ padding: 24, paddingTop: 64, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ width: 120, height: 120, borderRadius: '50%', background: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24, boxShadow: '0 10px 30px rgba(16,185,129,0.3)' }}>
+                        <Check size={64} color="white" strokeWidth={3} />
+                    </div>
+                    <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', marginBottom: 8 }}>¡Entrega completada!</h1>
+                    <p style={{ color: '#64748b', fontSize: '1.1rem', marginBottom: 40 }}>Has finalizado el viaje con éxito.</p>
 
-    // Destination based on current status
-    const pickupPhase = ['picked_up'].includes(order.status);
-    const deliveryPhase = ['on_the_way'].includes(order.status);
+                    <div style={{ width: '100%', background: 'white', borderRadius: 24, padding: 24, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', marginBottom: 24 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>Tus Ganancias</span>
+                            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#10b981' }}>${order.totals?.deliveryFee?.toFixed(2)}</span>
+                        </div>
+                        {isCash && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTop: '1px solid #f1f5f9' }}>
+                                <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>Efectivo Cobrado</span>
+                                <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f59e0b' }}>${order.totals?.total?.toFixed(2)}</span>
+                            </div>
+                        )}
+                    </div>
 
-    const merchantMapsUrl = getGoogleMapsUrl(merchant?.coordinates, merchant?.address?.street);
-    const deliveryMapsUrl = getGoogleMapsUrl(order.deliveryAddress?.coordinates, order.deliveryAddress?.street);
+                    <button onClick={() => navigate('/delivery')} style={{
+                        marginTop: 'auto', width: '100%', padding: 18, background: '#ea580c', color: 'white', border: 'none', borderRadius: 16, fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 20px rgba(234,88,12,0.3)'
+                    }}>
+                        Listo para el siguiente
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="app-container">
-            <div className="page-header">
-                <button className="btn btn-icon btn-ghost" onClick={() => navigate('/delivery')}>
-                    <ArrowLeft size={20} />
-                </button>
-                <h1>Entrega Activa</h1>
-                <span style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--color-primary)' }}>{order.orderNumber}</span>
-            </div>
-
-            <div style={{ padding: 16 }}>
-                {/* Delivery Map */}
+        <div className="app-container" style={{ padding: 0, height: '100vh', overflow: 'hidden', position: 'relative' }}>
+            {/* Fullscreen Map */}
+            <div className="fullscreen-map-container" style={{ zIndex: 0 }}>
                 <DeliveryMap
                     merchantId={order.merchantId}
                     deliveryAddress={order.deliveryAddress}
                     orderStatus={order.status}
-                    height={220}
-                    showNavigateButton={true}
-                    style={{ marginBottom: 20 }}
+                    height="100vh"
+                    showNavigateButton={false}
                 />
-
-                {/* Current Status Banner */}
-                {!isDelivered && (
-                    <div style={{
-                        background: pickupPhase ? 'var(--color-primary-bg)' : deliveryPhase ? '#dcfce7' : '#dbeafe',
-                        borderRadius: 12, padding: '12px 16px', marginBottom: 16,
-                        display: 'flex', alignItems: 'center', gap: 10,
-                    }}>
-                        <span style={{ fontSize: 24 }}>
-                            {pickupPhase ? '📦' : deliveryPhase ? '🚀' : '🛵'}
-                        </span>
-                        <div>
-                            <p style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                                {pickupPhase ? 'Lleva el pedido al cliente' : deliveryPhase ? 'En camino al destino' : 'Pedido recogido'}
-                            </p>
-                            {isCash && (
-                                <p style={{ fontSize: '0.72rem', color: '#92400e', fontWeight: 600 }}>
-                                    💵 Cobrar ${order.totals?.total?.toFixed(2)} en efectivo
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Pickup Location */}
-                <div style={{
-                    background: 'var(--color-primary-bg)', borderRadius: 12, padding: 16, marginBottom: 12,
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    opacity: deliveryPhase ? 0.6 : 1,
-                }}>
-                    <div style={{
-                        width: 40, height: 40, borderRadius: 10, background: 'var(--color-primary)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}>
-                        <MapPin size={18} color="white" />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Recoger en</p>
-                        <p style={{ fontWeight: 700 }}>{merchant?.name}</p>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{merchant?.address?.street}</p>
-                    </div>
-                    {merchantMapsUrl && (
-                        <a href={merchantMapsUrl} target="_blank" rel="noopener noreferrer"
-                            style={{
-                                width: 36, height: 36, borderRadius: 8, background: '#4285F4',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                            <Navigation size={16} color="white" />
-                        </a>
-                    )}
-                </div>
-
-                {/* Delivery Location — PROMINENT */}
-                <div style={{
-                    background: '#dcfce7', borderRadius: 12, padding: 16, marginBottom: 12,
-                    border: deliveryPhase ? '2px solid #16a34a' : '1px solid #bbf7d0',
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                        <div style={{
-                            width: 40, height: 40, borderRadius: 10, background: '#16a34a',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                        }}>
-                            <MapPin size={18} color="white" />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Entregar en</p>
-                            <p style={{ fontWeight: 700 }}>{order.deliveryAddress?.street || 'Centro, Tlapa'}</p>
-                            {order.deliveryAddress?.colony && (
-                                <p style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>{order.deliveryAddress.colony}</p>
-                            )}
-                        </div>
-                        {deliveryMapsUrl && (
-                            <a href={deliveryMapsUrl} target="_blank" rel="noopener noreferrer"
-                                style={{
-                                    width: 36, height: 36, borderRadius: 8, background: '#4285F4',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                <Navigation size={16} color="white" />
-                            </a>
-                        )}
-                    </div>
-
-                    {/* Reference — BIG AND PROMINENT */}
-                    {order.deliveryAddress?.reference && (
-                        <div style={{
-                            marginTop: 12, padding: '10px 14px', borderRadius: 8,
-                            background: '#f0fdf4', border: '1px dashed #86efac',
-                        }}>
-                            <p style={{ fontSize: '0.72rem', fontWeight: 700, color: '#166534', marginBottom: 4, textTransform: 'uppercase' }}>
-                                📝 Referencia
-                            </p>
-                            <p style={{ fontSize: '0.95rem', fontWeight: 600, color: '#14532d', lineHeight: 1.4 }}>
-                                {order.deliveryAddress.reference}
-                            </p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Contact Buttons */}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                    {clientPhone && (
-                        <a href={`tel:+52${clientPhone}`} className="btn btn-outline" style={{ flex: 1, fontSize: '0.8rem' }}>
-                            <Phone size={14} /> Llamar cliente
-                        </a>
-                    )}
-                    <a href={getWhatsAppLocationUrl()} target="_blank" rel="noopener noreferrer"
-                        className="btn" style={{ flex: 1, background: '#25D366', color: 'white', fontSize: '0.8rem' }}>
-                        <MessageCircle size={14} /> WhatsApp
-                    </a>
-                    {deliveryMapsUrl && (
-                        <a href={deliveryMapsUrl} target="_blank" rel="noopener noreferrer"
-                            className="btn" style={{ flex: 0.6, background: '#4285F4', color: 'white', fontSize: '0.8rem' }}>
-                            <ExternalLink size={14} /> Maps
-                        </a>
-                    )}
-                </div>
-
-                {/* Order Items with modifiers */}
-                <div style={{ background: 'var(--color-border-light)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-                    <h3 style={{ fontWeight: 700, marginBottom: 12, fontSize: '0.95rem' }}>
-                        <Package size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />
-                        Productos ({order.items.length})
-                    </h3>
-                    {order.items.map((item, i) => (
-                        <div key={i} style={{ marginBottom: 8, fontSize: '0.85rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ fontWeight: 600 }}>
-                                    {item.quantity}x {item.name}
-                                </span>
-                                <span style={{ fontWeight: 600 }}>${item.subtotal?.toFixed?.(2) || item.subtotal}</span>
-                            </div>
-                            {/* Modifiers */}
-                            {item.modifiers?.map((mod, mi) =>
-                                mod.selected?.length > 0 && (
-                                    <p key={mi} style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', paddingLeft: 16 }}>
-                                        {mod.groupName}: {mod.selected.map(s => s.name).join(', ')}
-                                    </p>
-                                )
-                            )}
-                            {item.selectedExtras?.length > 0 && (
-                                <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', paddingLeft: 16 }}>
-                                    + {item.selectedExtras.map(e => e.name).join(', ')}
-                                </p>
-                            )}
-                            {item.removedIngredients?.length > 0 && (
-                                <p style={{ fontSize: '0.72rem', color: '#ef4444', fontWeight: 600, paddingLeft: 16 }}>
-                                    ⛔ Sin: {item.removedIngredients.join(', ')}
-                                </p>
-                            )}
-                            {item.notes && (
-                                <p style={{ fontSize: '0.72rem', color: '#92400e', paddingLeft: 16, fontStyle: 'italic' }}>
-                                    📝 {item.notes}
-                                </p>
-                            )}
-                        </div>
-                    ))}
-
-                    <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 8, marginTop: 8 }}>
-                        {isCash && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#92400e' }}>💵 Cobrar en efectivo</span>
-                                <span style={{ fontWeight: 800, color: '#92400e' }}>${order.totals?.total?.toFixed(2)}</span>
-                            </div>
-                        )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>Tu ganancia</span>
-                            <span style={{ fontWeight: 800, color: 'var(--color-success)' }}>${order.totals?.deliveryFee?.toFixed(0)}</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* FSM Action Button */}
-                {actionButton && (
-                    <button
-                        className="btn btn-primary btn-block btn-lg"
-                        style={{ background: actionButton.color, borderColor: actionButton.color }}
-                        onClick={() => handleStatusUpdate(actionButton.next)}
-                        disabled={isProcessing}
-                    >
-                        {isProcessing ? 'Procesando...' : actionButton.label}
-                    </button>
-                )}
-
-                {/* Delivered State */}
-                {isDelivered && (
-                    <div style={{ textAlign: 'center', padding: 24 }}>
-                        <span style={{ fontSize: 64, display: 'block', marginBottom: 12 }}>🎉</span>
-                        <h2 style={{ fontWeight: 800, marginBottom: 8 }}>¡Entrega completada!</h2>
-                        <p style={{ color: 'var(--color-text-muted)', marginBottom: 4 }}>
-                            Ganaste ${order.totals?.deliveryFee?.toFixed(0)}
-                        </p>
-                        {isCash && order.payment?.cashCollected && (
-                            <p style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: 600 }}>
-                                💵 Efectivo cobrado: ${order.payment.cashCollected}
-                            </p>
-                        )}
-                        <button className="btn btn-secondary" style={{ marginTop: 16 }}
-                            onClick={() => navigate('/delivery')}>
-                            Volver al inicio
-                        </button>
-                    </div>
-                )}
             </div>
 
-            {/* Cash Payment Modal */}
-            {showCashModal && (
-                <div className="modal-overlay" onClick={() => setShowCashModal(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 360 }}>
-                        <div className="modal-handle" />
-                        <div style={{ padding: 24, textAlign: 'center' }}>
-                            <span style={{ fontSize: 48, display: 'block', marginBottom: 12 }}>💵</span>
-                            <h2 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: 8 }}>Cobro en Efectivo</h2>
-                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginBottom: 4 }}>
-                                Total del pedido:
-                            </p>
-                            <p style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-primary)', marginBottom: 20 }}>
-                                ${order.totals?.total?.toFixed(2)}
-                            </p>
+            {/* Top Back Button & Instruction Card */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, padding: '16px 16px 0', pointerEvents: 'none' }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                    <button style={{
+                        pointerEvents: 'auto', width: 48, height: 48, borderRadius: 16, background: 'white', border: 'none',
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+                    }} onClick={() => navigate('/delivery')}>
+                        <ArrowLeft size={24} color="#0f172a" />
+                    </button>
+                    <div className="driver-dark-card" style={{ flex: 1, pointerEvents: 'auto' }}>
+                        <p style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>Siguiente instrucción</p>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Navigation size={18} color="#ea580c" />
+                            {actionData.instruction}
+                        </h3>
+                    </div>
+                </div>
+            </div>
 
-                            <label style={{ display: 'block', textAlign: 'left', fontWeight: 700, fontSize: '0.85rem', marginBottom: 8 }}>
-                                ¿Cuánto te pagó el cliente?
-                            </label>
-                            <div style={{ position: 'relative', marginBottom: 16 }}>
-                                <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--color-text-muted)' }}>$</span>
-                                <input
-                                    type="number"
-                                    className="form-input"
-                                    placeholder="0.00"
-                                    value={cashAmount}
-                                    onChange={e => setCashAmount(e.target.value)}
-                                    autoFocus
-                                    style={{ paddingLeft: 32, fontSize: '1.1rem', fontWeight: 700, textAlign: 'center' }}
-                                />
-                            </div>
+            {/* Bottom Dark Sheet */}
+            <div style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
+                background: '#1c1c1e', color: 'white', borderTopLeftRadius: 32, borderTopRightRadius: 32,
+                padding: '24px', boxShadow: '0 -10px 40px rgba(0,0,0,0.3)',
+                animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}>
+                <div style={{ width: 40, height: 5, background: '#3f3f46', borderRadius: 3, margin: '0 auto 20px' }} />
 
-                            {cashAmount && parseFloat(cashAmount) > 0 && (
-                                <div style={{
-                                    padding: '8px 12px', borderRadius: 8, marginBottom: 16,
-                                    background: parseFloat(cashAmount) >= order.totals?.total ? '#dcfce7' : '#fef2f2',
-                                    fontSize: '0.8rem', fontWeight: 600,
-                                    color: parseFloat(cashAmount) >= order.totals?.total ? '#166534' : '#991b1b',
-                                }}>
-                                    {parseFloat(cashAmount) >= order.totals?.total
-                                        ? `✅ Cambio: $${(parseFloat(cashAmount) - order.totals.total).toFixed(2)}`
-                                        : `⚠️ Faltan $${(order.totals.total - parseFloat(cashAmount)).toFixed(2)}`
-                                    }
-                                </div>
-                            )}
+                {/* Metrics */}
+                <div style={{ display: 'flex', gap: 16, marginBottom: 24, borderBottom: '1px solid #27272a', paddingBottom: 20 }}>
+                    <div>
+                        <h2 style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: '#10b981' }}>~15<span style={{ fontSize: '1rem' }}>min</span></h2>
+                        <p style={{ fontSize: '0.8rem', color: '#a1a1aa', margin: 0 }}>Tiempo estimado</p>
+                    </div>
+                    <div style={{ width: 1, background: '#27272a' }} />
+                    <div>
+                        <h2 style={{ fontSize: '2rem', fontWeight: 800, margin: 0, color: '#ea580c' }}>1.2<span style={{ fontSize: '1rem' }}>km</span></h2>
+                        <p style={{ fontSize: '0.8rem', color: '#a1a1aa', margin: 0 }}>Distancia restante</p>
+                    </div>
+                </div>
 
-                            {/* Quick amount buttons */}
-                            <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
-                                {[50, 100, 200, 500].map(amt => (
-                                    <button key={amt} type="button"
-                                        className="btn btn-ghost btn-sm"
-                                        style={{
-                                            border: '1px solid var(--color-border)', fontWeight: 700,
-                                            background: cashAmount === String(amt) ? 'var(--color-primary-bg)' : 'white',
-                                        }}
-                                        onClick={() => setCashAmount(String(amt))}>
-                                        ${amt}
-                                    </button>
-                                ))}
-                                <button type="button"
-                                    className="btn btn-ghost btn-sm"
-                                    style={{ border: '1px solid var(--color-border)', fontWeight: 700, color: 'var(--color-primary)' }}
-                                    onClick={() => setCashAmount(String(order.totals?.total?.toFixed(2) || '0'))}>
-                                    Exacto
-                                </button>
-                            </div>
-
-                            <button
-                                className="btn btn-primary btn-block btn-lg"
-                                onClick={handleCashConfirm}
-                                disabled={isProcessing || !cashAmount || parseFloat(cashAmount) <= 0}
-                            >
-                                {isProcessing ? 'Procesando...' : '✅ Confirmar Cobro y Entregar'}
-                            </button>
-                            <button
-                                className="btn btn-ghost btn-block"
-                                style={{ marginTop: 8 }}
-                                onClick={() => setShowCashModal(false)}
-                            >
-                                Cancelar
-                            </button>
+                {/* Order Details */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <div style={{ width: 48, height: 48, borderRadius: 16, background: '#27272a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Package size={24} color="#f8fafc" />
                         </div>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700 }}>{actionData.dest}</h3>
+                            <p style={{ margin: 0, fontSize: '0.9rem', color: '#a1a1aa' }}>Pedido {order.orderNumber}</p>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <a href={clientPhone ? `tel:+52${clientPhone}` : '#'} style={{ width: 40, height: 40, borderRadius: '50%', background: '#27272a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                            <Phone size={18} />
+                        </a>
+                        <a href={`https://wa.me/52${clientPhone}`} target="_blank" rel="noopener noreferrer" style={{ width: 40, height: 40, borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                            <MessageCircle size={18} />
+                        </a>
+                    </div>
+                </div>
+
+                {/* Info Note (References or Modifiers if important) */}
+                {order.deliveryAddress?.reference && actionData.next === 'delivered' && (
+                    <div style={{ background: '#27272a', borderRadius: 12, padding: 12, marginBottom: 20, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                        <MapPin size={20} color="#fbbf24" style={{ flexShrink: 0 }} />
+                        <p style={{ fontSize: '0.85rem', color: '#e4e4e7', margin: 0, lineHeight: 1.4 }}>{order.deliveryAddress.reference}</p>
+                    </div>
+                )}
+
+                {isCash && actionData.next === 'delivered' && (
+                    <div style={{ background: '#451a03', border: '1px solid #78350f', borderRadius: 12, padding: 12, marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <DollarSign size={20} color="#f59e0b" style={{ flexShrink: 0 }} />
+                        <p style={{ fontSize: '0.9rem', color: '#fef3c7', margin: 0, fontWeight: 600 }}>Cobrar en efectivo: ${order.totals?.total?.toFixed(2)}</p>
+                    </div>
+                )}
+
+                {/* Main Action Button */}
+                <button
+                    onClick={() => handleStatusUpdate(actionData.next)}
+                    disabled={isProcessing}
+                    style={{
+                        width: '100%', padding: 18, borderRadius: 16, border: 'none',
+                        background: '#ea580c', color: 'white', fontSize: '1.1rem', fontWeight: 800,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        cursor: 'pointer', transition: 'transform 0.1s', opacity: isProcessing ? 0.7 : 1
+                    }}
+                    onMouseDown={(e) => !isProcessing && (e.currentTarget.style.transform = 'scale(0.98)')}
+                    onMouseUp={(e) => !isProcessing && (e.currentTarget.style.transform = 'scale(1)')}
+                    onMouseLeave={(e) => !isProcessing && (e.currentTarget.style.transform = 'scale(1)')}
+                >
+                    {isProcessing ? 'Procesando...' : actionData.label}
+                    {!isProcessing && <ChevronRight size={20} />}
+                </button>
+            </div>
+
+            {/* Cash Modal Overlay */}
+            {showCashModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                    <div style={{ background: '#1c1c1e', borderRadius: 24, width: '100%', maxWidth: 400, padding: 24, color: 'white', border: '1px solid #3f3f46' }}>
+                        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                            <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#451a03', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                                <DollarSign size={32} color="#f59e0b" />
+                            </div>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 8px 0' }}>Cobro en Efectivo</h2>
+                            <p style={{ fontSize: '0.9rem', color: '#a1a1aa', margin: 0 }}>Debes cobrar el total exacto</p>
+                        </div>
+
+                        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                            <p style={{ fontSize: '3rem', fontWeight: 900, color: '#f59e0b', margin: 0 }}>${order.totals?.total?.toFixed(2)}</p>
+                        </div>
+
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: 8, fontWeight: 600 }}>¿Cuánto te pagó el cliente?</label>
+                        <input
+                            type="number"
+                            value={cashAmount}
+                            onChange={e => setCashAmount(e.target.value)}
+                            placeholder="0.00"
+                            style={{ width: '100%', padding: '16px 20px', background: '#27272a', border: '2px solid #3f3f46', borderRadius: 16, color: 'white', fontSize: '1.25rem', fontWeight: 700, outline: 'none', marginBottom: 24, textAlign: 'center' }}
+                            autoFocus
+                        />
+
+                        <button onClick={handleCashConfirm} disabled={isProcessing || !cashAmount} style={{
+                            width: '100%', padding: 18, background: '#10b981', color: 'white', border: 'none', borderRadius: 16, fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer', marginBottom: 12
+                        }}>
+                            {isProcessing ? 'Procesando...' : 'Confirmar Cobro'}
+                        </button>
+                        <button onClick={() => setShowCashModal(false)} style={{
+                            width: '100%', padding: 18, background: 'transparent', color: '#a1a1aa', border: 'none', borderRadius: 16, fontSize: '1rem', fontWeight: 600, cursor: 'pointer'
+                        }}>
+                            Cancelar
+                        </button>
                     </div>
                 </div>
             )}

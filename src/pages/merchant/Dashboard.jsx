@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../contexts/OrderContext';
-import { getMerchants, saveMerchants, ORDER_STATUSES } from '../../data/seedData';
+import { ORDER_STATUSES } from '../../data/seedData';
+import { supabase } from '../../supabase';
 import {
     LayoutDashboard, UtensilsCrossed, Clock, CheckCircle2,
     ArrowRight, Star, TrendingUp, DollarSign, LogOut,
@@ -40,19 +41,41 @@ export default function MerchantDashboard() {
     const [soundEnabled, setSoundEnabled] = useState(true);
 
     // Find the merchant associated with the logged-in user
-    const allMerchants = getMerchants();
-    const merchantData = allMerchants.find(m => m.id === user?.merchantId);
-    const [isOpen, setIsOpen] = useState(merchantData?.isOpen ?? true);
+    const [merchantData, setMerchantData] = useState(null);
+    const [isOpen, setIsOpen] = useState(true);
     const [processingId, setProcessingId] = useState(null);
 
+    useEffect(() => {
+        const fetchMerchant = async () => {
+            if (!user?.merchantId) return;
+            try {
+                const { data, error } = await supabase.from('merchants').select('*').eq('id', user.merchantId).single();
+                if (data) {
+                    setMerchantData(data);
+                    setIsOpen(data.status === 'open' || data.isOpen === true);
+                }
+            } catch (err) {
+                console.error("Error loading merchant stats:", err);
+            }
+        };
+        fetchMerchant();
+    }, [user?.merchantId]);
+
     // Toggle online/offline
-    const toggleOnline = () => {
+    const toggleOnline = async () => {
+        if (!merchantData) return;
         const newVal = !isOpen;
-        setIsOpen(newVal);
-        const updated = allMerchants.map(m =>
-            m.id === user?.merchantId ? { ...m, isOpen: newVal } : m
-        );
-        saveMerchants(updated);
+        setIsOpen(newVal); // Optimistic UI update
+        try {
+            const { error } = await supabase.from('merchants').update({
+                status: newVal ? 'open' : 'closed',
+                isOpen: newVal
+            }).eq('id', merchantData.id);
+            if (error) throw error;
+        } catch (err) {
+            console.error("Failed to toggle online status:", err);
+            setIsOpen(!newVal); // Revert on failure
+        }
     };
 
     // Filter orders for this merchant

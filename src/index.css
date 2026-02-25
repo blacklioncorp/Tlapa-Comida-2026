@@ -132,7 +132,8 @@ ol {
    LAYOUT UTILITIES
    ═══════════════════════════════════════════════ */
 .app-container {
-  max-width: 480px;
+  width: 100%;
+  max-width: 1440px;
   margin: 0 auto;
   min-height: 100vh;
   background: var(--color-surface);
@@ -440,6 +441,17 @@ ol {
 .bottom-nav-item svg {
   width: 22px;
   height: 22px;
+}
+
+/* Desktop overrides */
+@media (min-width: 768px) {
+  .bottom-nav {
+    display: none;
+  }
+
+  .app-container {
+    padding-bottom: 0;
+  }
 }
 
 /* ═══════════════════════════════════════════════
@@ -1103,4 +1115,37 @@ ol {
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* ═══════════════════════════════════════════════
+   DRIVER APP SPECIFIC STYLES
+   ═══════════════════════════════════════════════ */
+.fullscreen-map-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+}
+
+.driver-bottom-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-surface);
+  border-radius: 32px 32px 0 0;
+  padding: 24px 24px 80px;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.driver-dark-card {
+  background: #1c1c1e;
+  color: white;
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }

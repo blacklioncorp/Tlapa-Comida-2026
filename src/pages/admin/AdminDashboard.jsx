@@ -2,7 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../contexts/OrderContext';
 import { useSmartDelivery } from '../../contexts/SmartDeliveryContext';
-import { MERCHANTS, ORDER_STATUSES } from '../../data/seedData';
+import { useState, useEffect } from 'react';
+import { ORDER_STATUSES } from '../../data/seedData';
+import { supabase } from '../../supabase';
 import { BarChart3, ShoppingBag, Store, Truck, Users, Settings, LogOut, TrendingUp, DollarSign, LayoutGrid, CloudRain, AlertTriangle, Gift } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -19,10 +21,15 @@ export default function AdminDashboard() {
         return new Date(o.createdAt).toDateString() === today;
     }).length;
 
+    const [merchants, setMerchants] = useState([]);
+    useEffect(() => {
+        supabase.from('merchants').select('*').then(({ data }) => setMerchants(data || []));
+    }, []);
+
     const kpis = [
         { label: 'Ventas Totales', value: `$${totalSales.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`, change: '+12.5%', positive: true, icon: TrendingUp },
         { label: 'Pedidos Hoy', value: todayOrders || orders.length, change: '+8.2%', positive: true, icon: ShoppingBag },
-        { label: 'Comercios Activos', value: MERCHANTS.filter(m => m.isOpen).length, change: '', positive: true, icon: Store },
+        { label: 'Comercios Activos', value: merchants.filter(m => m.status === 'open' || m.isOpen).length, change: '', positive: true, icon: Store },
         { label: 'Repartidores', value: '3', change: '2 en línea', positive: true, icon: Truck },
     ];
 
@@ -77,18 +84,6 @@ export default function AdminDashboard() {
                         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Bienvenido al panel de administración</p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {/* BOTÓN SECRETO PARA INICIAR LA DB EN FIRESTORE CON SEMILLAS */}
-                        <button
-                            className="btn btn-primary"
-                            style={{ background: '#7e22ce', color: 'white' }}
-                            onClick={async () => {
-                                const { seedDatabase } = await import('../../utils/seedDatabase.js');
-                                await seedDatabase();
-                                alert('¡Base de Datos de Firestore Mapeada con Semillas!');
-                            }}>
-                            🔥 Poblar Nube (Seed)
-                        </button>
-
                         {weather && (
                             <div style={{
                                 display: 'flex', alignItems: 'center', gap: 6,
@@ -206,7 +201,7 @@ export default function AdminDashboard() {
                                 </tr>
                             ) : (
                                 orders.slice(0, 10).map(order => {
-                                    const merchant = MERCHANTS.find(m => m.id === order.merchantId);
+                                    const merchant = merchants.find(m => m.id === order.merchantId);
                                     const statusInfo = ORDER_STATUSES[order.status];
                                     return (
                                         <tr key={order.id}>

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../contexts/OrderContext';
-import { MERCHANTS } from '../../data/seedData';
+import { supabase } from '../../supabase';
 import { Star } from 'lucide-react';
 
 function StarSelector({ rating, setRating }) {
@@ -27,10 +27,19 @@ export default function OrderRating() {
     const [driverRating, setDriverRating] = useState(0);
     const [comment, setComment] = useState('');
     const [submitted, setSubmitted] = useState(false);
+    const [rating, setRating] = useState(0);
+    const [hover, setHover] = useState(0);
+    const [loading, setLoading] = useState(false);
 
-    if (!order) return null;
+    const [merchant, setMerchant] = useState(null);
 
-    const merchant = MERCHANTS.find(m => m.id === order.merchantId);
+    useEffect(() => {
+        if (order?.merchantId && !merchant) {
+            supabase.from('merchants').select('*').eq('id', order.merchantId).single().then(({ data }) => setMerchant(data));
+        }
+    }, [order?.merchantId, merchant]);
+
+    if (!order) return <div className="app-container"><div className="loading-page"><div className="spinner" /></div></div>;
 
     const handleSubmit = () => {
         rateOrder(orderId, { food: foodRating, driver: driverRating, comment });

@@ -1,207 +1,226 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../firebase';
-import { UtensilsCrossed, Truck, Store, Shield, Eye, EyeOff, LogIn, ChevronDown, ChevronUp } from 'lucide-react';
-
-const CREDENTIALS_HINT = [
-    { role: 'Admin', email: 'admin@tlapacomida.mx', pass: 'admin2024' },
-    { role: 'Cliente', email: 'maria@ejemplo.com', pass: 'maria123' }
-];
+import { Eye, EyeOff, LogIn, Mail, Lock } from 'lucide-react';
 
 export default function Login() {
-    const { login, loginAs, loginWithGoogle } = useAuth();
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
     const [showCredentials, setShowCredentials] = useState(false);
+
+    // Get register from AuthContext to correctly seed users with roles
+    const { login, loginWithGoogle, register } = useAuth();
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
-        if (!email.trim()) { setError('Ingresa tu correo o teléfono'); return; }
+        if (!email.trim()) { setError('Ingresa tu correo electrónico'); return; }
         if (!password.trim()) { setError('Ingresa tu contraseña'); return; }
 
+        setIsLoading(true);
         const result = await login(email.trim(), password);
-        if (result.success) {
-            // Success handler is now in onAuthStateChanged in AuthContext
-            // Navigator will be handled by role redirect or home
-        } else {
-            // HACK DE DESARROLLO: Si las credenciales de prueba usadas no existen en Firebase, las creamos.
-            const isTestUser = CREDENTIALS_HINT.find(c => c.email === email.trim() && c.pass === password);
-            if (isTestUser) {
-                try {
-                    setError('Autocisando base de datos con esta credencial...');
-                    await createUserWithEmailAndPassword(auth, email.trim(), password);
-                    // AuthContext capturará la creación y ensamblará el rol correcto en la base de datos automáticamente
-                    setError('');
-                    return;
-                } catch (registerErr) {
-                    console.error("No se pudo auto-sembrar la cuenta de prueba:", registerErr);
-                }
-            }
 
-            setError(result.error);
+        if (result.success) {
+            // Success handler is in onAuthStateChanged
+        } else {
+            setError(result.error || 'Credenciales inválidas');
+            setIsLoading(false);
         }
     };
 
     const handleGoogleLogin = async () => {
         setError('');
+        setIsLoading(true);
         const result = await loginWithGoogle();
         if (!result.success) {
             setError(result.error);
+            setIsLoading(false);
         }
     };
 
-    const handleFillCredentials = (cred) => {
-        setEmail(cred.email);
-        setPassword(cred.pass);
-        setError('');
-    };
+
 
     return (
-        <div className="app-container" style={{ minHeight: '100vh', background: 'var(--color-background)' }}>
-            <div style={{ padding: '48px 24px 24px', textAlign: 'center' }}>
-                {/* Logo */}
+        <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            background: '#f8fafc',
+            position: 'relative',
+            overflow: 'hidden'
+        }}>
+            {/* Background Decorative Blobs */}
+            <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: '50vw', height: '50vw', background: 'radial-gradient(circle, rgba(238,101,43,0.15) 0%, rgba(255,138,87,0) 70%)', borderRadius: '50%', zIndex: 0, pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: '-20%', right: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(16,185,129,0.1) 0%, rgba(16,185,129,0) 70%)', borderRadius: '50%', zIndex: 0, pointerEvents: 'none' }} />
+
+            <div style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '24px',
+                zIndex: 1
+            }}>
                 <div style={{
-                    width: 80, height: 80, borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #ee652b, #ff8a57)',
-                    margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 8px 24px rgba(238,101,43,0.3)'
+                    width: '100%',
+                    maxWidth: '440px',
+                    background: 'rgba(255, 255, 255, 0.85)',
+                    backdropFilter: 'blur(20px)',
+                    WebkitBackdropFilter: 'blur(20px)',
+                    borderRadius: '32px',
+                    padding: '40px 32px',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255,255,255,0.5)',
+                    display: 'flex',
+                    flexDirection: 'column'
                 }}>
-                    <span style={{ fontSize: 36 }}>🍽️</span>
-                </div>
-                <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: 4 }}>
-                    Tlapa <span style={{ color: 'var(--color-primary)' }}>Comida</span>
-                </h1>
-                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-                    Sabor local hasta tu puerta
-                </p>
-            </div>
+                    {/* Brand Header */}
+                    <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                        <div style={{
+                            width: 64, height: 64, borderRadius: '20px',
+                            background: 'linear-gradient(135deg, #ee652b 0%, #ea580c 100%)',
+                            margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            boxShadow: '0 12px 24px rgba(234,88,12,0.3)',
+                            transform: 'rotate(-5deg)'
+                        }}>
+                            <span style={{ fontSize: 32, transform: 'rotate(5deg)' }}>🍽️</span>
+                        </div>
+                        <h1 style={{ fontSize: '1.875rem', fontWeight: 900, color: '#0f172a', margin: '0 0 8px 0', letterSpacing: '-0.02em' }}>
+                            ¡Bienvenido de nuevo!
+                        </h1>
+                        <p style={{ color: '#64748b', fontSize: '0.95rem', margin: 0 }}>
+                            Ingresa tus datos para continuar
+                        </p>
+                    </div>
 
-            {/* Google Login */}
-            <div style={{ padding: '0 24px 16px' }}>
-                <button type="button" onClick={handleGoogleLogin} className="btn btn-outline btn-block btn-lg"
-                    style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                        background: 'white', border: '2px solid var(--color-border-light)', color: 'var(--color-text)'
-                    }}>
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: 18 }} />
-                    Continuar con Google
-                </button>
+                    {/* Google Login */}
+                    <button type="button" onClick={handleGoogleLogin} disabled={isLoading}
+                        style={{
+                            width: '100%', padding: '14px', borderRadius: '16px',
+                            background: 'white', border: '1px solid #e2e8f0',
+                            color: '#0f172a', fontSize: '1rem', fontWeight: 700,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+                            cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                            transition: 'all 0.2s ease', opacity: isLoading ? 0.7 : 1
+                        }}
+                        onMouseOver={e => !isLoading && (e.currentTarget.style.background = '#f8fafc')}
+                        onMouseOut={e => !isLoading && (e.currentTarget.style.background = 'white')}
+                    >
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: 20, height: 20 }} />
+                        Continuar con Google
+                    </button>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
-                    <div style={{ flex: 1, height: 1, background: 'var(--color-border-light)' }}></div>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>o con tu correo</span>
-                    <div style={{ flex: 1, height: 1, background: 'var(--color-border-light)' }}></div>
-                </div>
-            </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', margin: '24px 0' }}>
+                        <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>O INTENTA CON TU CORREO</span>
+                        <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
+                    </div>
 
-            {/* Login Form */}
-            <form onSubmit={handleLogin} style={{ padding: '0 24px 16px' }}>
-                {error && (
-                    <div style={{
-                        background: 'var(--color-error-bg)', color: 'var(--color-error)',
-                        padding: '10px 16px', borderRadius: 8, marginBottom: 16, fontSize: '0.875rem', fontWeight: 600
-                    }}>{error}</div>
-                )}
-
-                <div className="form-group">
-                    <label className="form-label">Correo electrónico</label>
-                    <input
-                        type="text"
-                        className="form-input"
-                        placeholder="tu@correo.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        autoComplete="email"
-                    />
-                </div>
-
-                <div className="form-group">
-                    <label className="form-label">Contraseña</label>
-                    <div style={{ position: 'relative' }}>
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            className="form-input"
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            autoComplete="current-password"
-                            style={{ paddingRight: 42 }}
-                        />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)}
-                            style={{
-                                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                                background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-                                color: 'var(--color-text-muted)',
+                    {/* Form */}
+                    <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {error && (
+                            <div style={{
+                                background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c',
+                                padding: '12px 16px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600,
+                                display: 'flex', alignItems: 'center', gap: '8px'
                             }}>
-                            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                    </div>
-                </div>
+                                <span style={{ fontSize: '1rem' }}>⚠️</span>
+                                {error}
+                            </div>
+                        )}
 
-                <button type="submit" className="btn btn-primary btn-block btn-lg" style={{ marginTop: 8 }}>
-                    <LogIn size={18} /> Iniciar Sesión
-                </button>
-
-                <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                    ¿No tienes cuenta?{' '}
-                    <a href="/register" style={{ fontWeight: 700 }}>Regístrate</a>
-                </p>
-            </form>
-
-            {/* Credentials Helper */}
-            <div style={{ padding: '0 24px 16px' }}>
-                <button onClick={() => setShowCredentials(!showCredentials)}
-                    style={{
-                        width: '100%', background: 'var(--color-border-light)', border: 'none',
-                        borderRadius: 10, padding: '10px 16px', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        color: 'var(--color-text-secondary)', fontSize: '0.8rem', fontWeight: 600,
-                    }}>
-                    <span>🔑 Credenciales de prueba</span>
-                    {showCredentials ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-
-                {showCredentials && (
-                    <div style={{
-                        marginTop: 8, background: 'var(--color-surface)', borderRadius: 12,
-                        border: '1px solid var(--color-border-light)', overflow: 'hidden',
-                    }}>
-                        {CREDENTIALS_HINT.map((cred, i) => (
-                            <button key={i} onClick={() => handleFillCredentials(cred)}
-                                style={{
-                                    width: '100%', background: 'none', border: 'none',
-                                    borderBottom: i < CREDENTIALS_HINT.length - 1 ? '1px solid var(--color-border-light)' : 'none',
-                                    padding: '10px 16px', cursor: 'pointer', textAlign: 'left',
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                                    transition: 'background 0.15s',
-                                }}
-                                onMouseOver={e => e.currentTarget.style.background = 'var(--color-primary-bg)'}
-                                onMouseOut={e => e.currentTarget.style.background = 'none'}>
-                                <div>
-                                    <span style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--color-text)' }}>
-                                        {cred.role}
-                                    </span>
-                                    <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                                        {cred.email}
-                                    </p>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                                Correo Electrónico
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+                                    <Mail size={20} />
                                 </div>
-                                <span style={{
-                                    fontSize: '0.65rem', fontWeight: 600, color: 'var(--color-primary)',
-                                    background: 'var(--color-primary-bg)', padding: '3px 8px', borderRadius: 6,
-                                }}>Usar</span>
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
+                                <input
+                                    type="email"
+                                    placeholder="ejemplo@correo.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    style={{
+                                        width: '100%', padding: '14px 16px 14px 44px',
+                                        background: 'white', border: '2px solid #e2e8f0', borderRadius: '16px',
+                                        fontSize: '1rem', color: '#0f172a', transition: 'all 0.2s', outline: 'none'
+                                    }}
+                                    onFocus={e => e.currentTarget.style.borderColor = '#ee652b'}
+                                    onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                                />
+                            </div>
+                        </div>
 
-            {/* Quick Login by Role removed per user request */}
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>
+                                    Contraseña
+                                </label>
+                                <a href="#" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#ee652b', textDecoration: 'none' }}>
+                                    ¿Olvidaste tu contraseña?
+                                </a>
+                            </div>
+                            <div style={{ position: 'relative' }}>
+                                <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+                                    <Lock size={20} />
+                                </div>
+                                <input
+                                    type={showPassword ? 'text' : 'password'}
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    style={{
+                                        width: '100%', padding: '14px 44px',
+                                        background: 'white', border: '2px solid #e2e8f0', borderRadius: '16px',
+                                        fontSize: '1rem', color: '#0f172a', transition: 'all 0.2s', outline: 'none'
+                                    }}
+                                    onFocus={e => e.currentTarget.style.borderColor = '#ee652b'}
+                                    onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                                />
+                                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                                    style={{
+                                        position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                                        background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
+                                        color: '#94a3b8', display: 'flex', alignItems: 'center'
+                                    }}>
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" disabled={isLoading}
+                            style={{
+                                width: '100%', padding: '16px', borderRadius: '16px',
+                                background: 'linear-gradient(135deg, #ee652b 0%, #ea580c 100%)',
+                                color: 'white', border: 'none', fontSize: '1.05rem', fontWeight: 800,
+                                cursor: isLoading ? 'wait' : 'pointer', marginTop: '8px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                                boxShadow: '0 10px 25px -5px rgba(234,88,12,0.4)', transition: 'transform 0.1s',
+                                opacity: isLoading ? 0.7 : 1
+                            }}
+                            onMouseDown={e => !isLoading && (e.currentTarget.style.transform = 'scale(0.98)')}
+                            onMouseUp={e => !isLoading && (e.currentTarget.style.transform = 'scale(1)')}
+                            onMouseLeave={e => !isLoading && (e.currentTarget.style.transform = 'scale(1)')}
+                        >
+                            {isLoading ? 'Iniciando...' : (
+                                <>
+                                    <LogIn size={20} /> Iniciar Sesión
+                                </>
+                            )}
+                        </button>
+                    </form>
+
+                    <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '0.9rem', color: '#64748b' }}>
+                        ¿No tienes una cuenta? <a href="/register" onClick={(e) => { e.preventDefault(); navigate('/register'); }} style={{ color: '#ee652b', fontWeight: 800, textDecoration: 'none' }}>Regístrate</a>
+                    </p>
+
+
+                </div>
+            </div>
         </div>
     );
 }

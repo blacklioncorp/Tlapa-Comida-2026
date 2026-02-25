@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../firebase';
-import { collection, query, onSnapshot, doc, updateDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { supabase } from '../../supabase';
 import {
     LayoutDashboard, UtensilsCrossed, Plus, Search,
     Edit2, Trash2, X, Save, ArrowLeft, Image as ImageIcon,
@@ -19,46 +18,67 @@ export default function MenuManager() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [merchantInfo, setMerchantInfo] = useState(null);
 
     const merchantId = user?.merchantId;
-    // Fallback info visual si aún usas seedData
-    const merchantInfo = MERCHANTS.find(m => m.id === merchantId);
 
-    // 1. LECTURA EN TIEMPO REAL DEL MENÚ (Firestore)
+    // 1. LECTURA EN TIEMPO REAL DEL MENÚ (Supabase)
     useEffect(() => {
         if (!merchantId) {
             setLoading(false);
             return;
         }
 
-        const menuRef = collection(db, 'restaurants', merchantId, 'menu');
-        const q = query(menuRef); // Podría añadir orderBy('name') si quisieras
+        let subscription = null;
 
-        // Realtime Listener
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const menuData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setMenu(menuData);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error al escuchar cambios en menú:", error);
-            setLoading(false);
-        });
+        const fetchInitialData = async () => {
+            // Fetch merchant name
+            try {
+                const { data: mData } = await supabase.from('merchants').select('name').eq('id', merchantId).single();
+                setMerchantInfo(mData);
+            } catch (err) {
+                console.error("Error fetching merchant info:", err);
+            }
 
-        // Cleanup al salir
-        return () => unsubscribe();
+            // Fetch initial products
+            try {
+                const { data: pData } = await supabase.from('products').select('*').eq('merchantId', merchantId);
+                setMenu(pData || []);
+            } catch (err) {
+                console.error("Error fetching menu:", err);
+            }
+            setLoading(false);
+        };
+
+        const setupRealtime = () => {
+            subscription = supabase.channel(`public:products:merchantId=eq.${merchantId}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `merchantId=eq.${merchantId}` }, payload => {
+                    setMenu(current => {
+                        if (payload.eventType === 'INSERT') return [...current, payload.new];
+                        if (payload.eventType === 'UPDATE') return current.map(p => p.id === payload.new.id ? payload.new : p);
+                        if (payload.eventType === 'DELETE') return current.filter(p => p.id !== payload.old.id);
+                        return current;
+                    });
+                })
+                .subscribe();
+        };
+
+        fetchInitialData().then(() => setupRealtime());
+
+        return () => {
+            if (subscription) supabase.removeChannel(subscription);
+        };
     }, [merchantId]);
 
     // 2. ACTUALIZACIÓN ATÓMICA DE ESTADO "AGOTADO / DISPONIBLE"
     const handleToggleAvailable = async (itemId, currentAvailability) => {
         if (!merchantId) return;
         try {
-            const itemRef = doc(db, 'restaurants', merchantId, 'menu', itemId);
-            // setDoc con { merge: true } funciona como updateDoc pero evitará un crash si
-            // el platillo era 'semilla' y no había sido creado explícitamente en Firebase antes.
-            await setDoc(itemRef, {
+            const { error } = await supabase.from('products').update({
                 isAvailable: !currentAvailability,
-                updatedAt: serverTimestamp()
-            }, { merge: true });
+                updatedAt: new Date().toISOString()
+            }).eq('id', itemId);
+            if (error) throw error;
         } catch (error) {
             console.error("Error cambiando estado:", error);
             alert("Error al actualizar disponibilidad.");
@@ -68,9 +88,8 @@ export default function MenuManager() {
     const handleDelete = async (itemId) => {
         if (!merchantId || !window.confirm("¿Seguro que deseas eliminar este platillo para siempre?")) return;
         try {
-            const { deleteDoc } = await import('firebase/firestore');
-            const itemRef = doc(db, 'restaurants', merchantId, 'menu', itemId);
-            await deleteDoc(itemRef);
+            const { error } = await supabase.from('products').delete().eq('id', itemId);
+            if (error) throw error;
         } catch (error) {
             console.error("Error al eliminar platillo:", error);
             alert("No se pudo eliminar.");
@@ -140,7 +159,7 @@ export default function MenuManager() {
                         {activeMenu.map(item => (
                             <div key={item.id} className="card no-padding overflow-hidden" style={{ opacity: item.isAvailable ? 1 : 0.7 }}>
                                 <div style={{ position: 'relative' }}>
-                                    <img src={item.image} alt={item.name} style={{ width: '100%', height: 160, objectFit: 'cover' }} />
+                                    <img src={item.imageUrl || item.image} alt={item.name} style={{ width: '100%', height: 160, objectFit: 'cover' }} />
                                     {!item.isAvailable && (
                                         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <span style={{ color: 'white', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Agotado</span>

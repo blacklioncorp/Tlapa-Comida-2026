@@ -1,10 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { db } from '../../firebase';
-import { collection, query, onSnapshot } from 'firebase/firestore';
+import { supabase } from '../../supabase';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCart } from '../../contexts/CartContext';
 import { useSmartDelivery } from '../../contexts/SmartDeliveryContext';
-import { getMerchants } from '../../data/seedData';
 import { applyWeatherDelay, adjustedDeliveryFee } from '../../services/WeatherService';
 import { ArrowLeft, Star, Clock, MapPin, ShoppingBag, Plus, Minus, X, Check, AlertCircle } from 'lucide-react';
 import WeatherBanner from '../../components/WeatherBanner';
@@ -26,7 +24,7 @@ function ItemModal({ item, merchant, onClose, onAddToCart }) {
     // Legacy extras (for items without modifierGroups)
     const [selectedExtras, setSelectedExtras] = useState([]);
 
-    const hasModifierGroups = item.modifierGroups && item.modifierGroups.length > 0;
+    const hasModifierGroups = item.modifiers && item.modifiers.length > 0;
 
     // Toggle option in a modifier group
     const toggleModifierOption = (group, option) => {
@@ -76,7 +74,7 @@ function ItemModal({ item, merchant, onClose, onAddToCart }) {
 
     // Validation: check all required modifier groups are filled
     const requiredGroups = hasModifierGroups
-        ? item.modifierGroups.filter(g => g.required)
+        ? item.modifiers.filter(g => g.required)
         : [];
 
     const missingRequired = requiredGroups.filter(g => {
@@ -102,7 +100,7 @@ function ItemModal({ item, merchant, onClose, onAddToCart }) {
 
         if (hasModifierGroups) {
             // New format
-            cartItem.modifiers = item.modifierGroups
+            cartItem.modifiers = item.modifiers
                 .filter(g => (modifierSelections[g.id] || []).length > 0)
                 .map(g => ({
                     groupId: g.id,
@@ -137,7 +135,7 @@ function ItemModal({ item, merchant, onClose, onAddToCart }) {
                     <p style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-primary)' }}>${item.price} MXN</p>
 
                     {/* ═══ Modifier Groups ═══ */}
-                    {hasModifierGroups && item.modifierGroups.map(group => (
+                    {hasModifierGroups && item.modifiers.map(group => (
                         <div key={group.id} style={{ marginTop: 20 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                                 <h3 style={{ fontSize: '0.9rem', fontWeight: 700 }}>
@@ -320,31 +318,55 @@ export default function RestaurantDetail() {
     const { weather, isRaining } = useSmartDelivery();
     const [selectedItem, setSelectedItem] = useState(null);
     const [activeMenuCat, setActiveMenuCat] = useState('all');
+    const [merchant, setMerchant] = useState(null);
     const [realtimeMenu, setRealtimeMenu] = useState([]);
     const [loadingMenu, setLoadingMenu] = useState(true);
 
-    const merchant = getMerchants().find(m => m.id === id);
-
-    // LECTURA EN TIEMPO REAL (onSnapshot)
+    // LECTURA DE DATOS DESDE SUPABASE
     useEffect(() => {
         if (!id) return;
 
-        const menuRef = collection(db, 'restaurants', id, 'menu');
-        const q = query(menuRef);
+        let menuSubscription = null;
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const menuData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setRealtimeMenu(menuData);
-            setLoadingMenu(false);
-        }, (error) => {
-            console.error("Error cargando menú en tiempo real:", error);
-            setLoadingMenu(false);
-        });
+        const loadData = async () => {
+            // Fetch Merchant
+            try {
+                const { data: mData } = await supabase.from('merchants').select('*').eq('id', id).single();
+                setMerchant(mData);
+            } catch (err) {
+                console.error("Error cargando restaurante:", err);
+            }
 
-        return () => unsubscribe();
+            // Fetch initial menu
+            try {
+                const { data: pData } = await supabase.from('products').select('*').eq('merchantId', id);
+                setRealtimeMenu(pData || []);
+            } catch (err) {
+                console.error("Error cargando menú en tiempo real:", err);
+            }
+            setLoadingMenu(false);
+        };
+
+        const listenToMenu = () => {
+            menuSubscription = supabase.channel(`public:products:merchantId=eq.${id}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `merchantId=eq.${id}` }, (payload) => {
+                    const modifiedProduct = payload.new;
+                    setRealtimeMenu(current => {
+                        if (payload.eventType === 'INSERT') return [modifiedProduct, ...current];
+                        if (payload.eventType === 'UPDATE') return current.map(p => p.id === modifiedProduct.id ? modifiedProduct : p);
+                        if (payload.eventType === 'DELETE') return current.filter(p => p.id !== payload.old.id);
+                        return current;
+                    });
+                }).subscribe();
+        };
+
+        loadData().then(() => listenToMenu());
+
+        return () => {
+            if (menuSubscription) supabase.removeChannel(menuSubscription);
+        };
     }, [id]);
 
-    // 3. MENÚ REAL DESDE FIRESTORE (Ya no fusionamos con el falso)
     const activeMenu = realtimeMenu;
 
     const menuCategories = useMemo(() => {
@@ -446,7 +468,11 @@ export default function RestaurantDetail() {
                 {Object.entries(groupedMenu).map(([category, items]) => (
                     <div key={category} style={{ marginBottom: 24 }}>
                         <h3 className="section-title">{category}</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                            gap: '16px'
+                        }}>
                             {items.map(item => (
                                 <div key={item.id || item.itemId}
                                     className="card-flat card"

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../contexts/OrderContext';
-import { MERCHANTS } from '../../data/seedData';
+import { supabase } from '../../supabase';
 import {
     BarChart3, Store, Users, ShoppingBag, Settings, LogOut,
     DollarSign, TrendingUp, Wallet, ArrowUpRight, ArrowDownRight,
@@ -18,6 +18,11 @@ export default function FinanceDashboard() {
     const [expandedMerchant, setExpandedMerchant] = useState(null);
     const [expandedDriver, setExpandedDriver] = useState(null);
     const [activeSection, setActiveSection] = useState('overview'); // overview, merchants, drivers
+    const [merchants, setMerchants] = useState([]);
+
+    useEffect(() => {
+        supabase.from('merchants').select('*').then(({ data }) => setMerchants(data || []));
+    }, []);
 
     // Filter orders by time period
     const filteredOrders = useMemo(() => {
@@ -52,7 +57,7 @@ export default function FinanceDashboard() {
 
     // Breakdown per order
     const calculateOrderFinancials = (order) => {
-        const merchant = MERCHANTS.find(m => m.id === order.merchantId);
+        const merchant = merchants.find(m => m.id === order.merchantId);
         const subtotal = order.totals?.subtotal || 0;
         const deliveryFee = order.totals?.deliveryFee || 0;
         const serviceFee = order.totals?.serviceFee || 0;
@@ -120,7 +125,7 @@ export default function FinanceDashboard() {
 
             // Per merchant
             if (!perMerchant[fin.merchantId]) {
-                const m = MERCHANTS.find(mm => mm.id === fin.merchantId);
+                const m = merchants.find(mm => mm.id === fin.merchantId);
                 perMerchant[fin.merchantId] = {
                     id: fin.merchantId,
                     name: fin.merchantName,

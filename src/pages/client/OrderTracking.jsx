@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrders } from '../../contexts/OrderContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { MERCHANTS, ORDER_STATUSES, ALL_USERS, getMerchants } from '../../data/seedData';
+import { ORDER_STATUSES } from '../../data/seedData';
+import { supabase } from '../../supabase';
 import { ArrowLeft, Phone, MessageCircle, Check, XCircle, MapPin, Navigation } from 'lucide-react';
 import DeliveryMap from '../../components/DeliveryMap';
 import SmartETADisplay from '../../components/SmartETADisplay';
@@ -50,8 +51,19 @@ export default function OrderTracking() {
         );
     }
 
-    const allMerchants = getMerchants();
-    const merchant = allMerchants.find(m => m.id === order.merchantId) || MERCHANTS.find(m => m.id === order.merchantId);
+    const [merchant, setMerchant] = useState(null);
+    const [driver, setDriver] = useState(null);
+
+    useEffect(() => {
+        if (!order) return;
+        if (order.merchantId && !merchant) {
+            supabase.from('merchants').select('*').eq('id', order.merchantId).single().then(({ data }) => setMerchant(data));
+        }
+        if (order.driverId && !driver) {
+            supabase.from('users').select('*').eq('id', order.driverId).single().then(({ data }) => setDriver(data));
+        }
+    }, [order?.merchantId, order?.driverId]);
+
     const isCancelled = order.status === 'cancelled';
     const isDelivered = order.status === 'delivered';
     const isFinal = isDelivered || isCancelled;
@@ -62,9 +74,7 @@ export default function OrderTracking() {
     const currentStepIndex = isCancelled ? -1 : STEPS.indexOf(order.status);
 
     // Get driver info
-    const driver = order.driverId ? ALL_USERS.find(u => u.id === order.driverId) : null;
-    const driverPhotos = JSON.parse(localStorage.getItem('tlapa_driver_photos') || '{}');
-    const driverPhoto = driver ? (driverPhotos[driver.id] || driver.avatarUrl) : null;
+    const driverPhoto = driver?.photoURL || driver?.avatarUrl || null;
 
     const handleCancel = async () => {
         if (!canCancel) return;

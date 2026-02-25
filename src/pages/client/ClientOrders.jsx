@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { useOrders } from '../../contexts/OrderContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { MERCHANTS, ORDER_STATUSES } from '../../data/seedData';
+import { useEffect, useState } from 'react';
+import { ORDER_STATUSES } from '../../data/seedData';
+import { supabase } from '../../supabase';
 import { ArrowLeft } from 'lucide-react';
 
 export default function ClientOrders() {
@@ -9,6 +11,21 @@ export default function ClientOrders() {
     const { user } = useAuth();
     const { getOrdersByRole } = useOrders();
     const myOrders = getOrdersByRole(user.id, 'client');
+    const [merchantsDict, setMerchantsDict] = useState({});
+
+    useEffect(() => {
+        const fetchMerchants = async () => {
+            const uniqueIds = [...new Set(myOrders.map(o => o.merchantId))];
+            if (uniqueIds.length === 0) return;
+            const { data } = await supabase.from('merchants').select('id, name, logoUrl').in('id', uniqueIds);
+            if (data) {
+                const dict = {};
+                data.forEach(m => dict[m.id] = m);
+                setMerchantsDict(dict);
+            }
+        };
+        fetchMerchants();
+    }, [myOrders.length]);
 
     return (
         <div className="app-container">
@@ -30,7 +47,7 @@ export default function ClientOrders() {
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {myOrders.map(order => {
-                            const merchant = MERCHANTS.find(m => m.id === order.merchantId);
+                            const merchant = merchantsDict[order.merchantId];
                             const statusInfo = ORDER_STATUSES[order.status];
                             const isActive = !['delivered', 'cancelled'].includes(order.status);
                             return (

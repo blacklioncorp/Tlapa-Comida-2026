@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useSmartDelivery } from '../../contexts/SmartDeliveryContext';
-import { getMerchants, getCategories } from '../../data/seedData';
+import { getCategories } from '../../data/seedData';
+import { supabase } from '../../supabase';
 import { Search, MapPin, ShoppingBag, Tag, Star, Clock, ChevronRight, LogOut, Ticket, Plus, LayoutDashboard } from 'lucide-react';
 import AddressModal from '../../components/AddressModal';
 import WeatherBanner from '../../components/WeatherBanner';
@@ -18,6 +19,25 @@ export default function ClientHome() {
     const [search, setSearch] = useState('');
     const [activeCategory, setActiveCategory] = useState('all');
     const [showAddressModal, setShowAddressModal] = useState(false);
+    const [merchants, setMerchants] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    // Fetch live merchants from Supabase
+    useEffect(() => {
+        const fetchMerchants = async () => {
+            try {
+                const { data, error } = await supabase.from('merchants').select('*').order('rating', { ascending: false });
+                if (error) throw error;
+                // Parse coordinates stringified JSON if needed (although Supabase handles jsonb natively)
+                setMerchants(data || []);
+            } catch (err) {
+                console.error("Failed to load merchants:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchMerchants();
+    }, []);
 
     // Auto-show address modal for new users without address
     useEffect(() => {
@@ -27,7 +47,6 @@ export default function ClientHome() {
     }, [user]);
 
     const categories = getCategories();
-    const merchants = getMerchants();
 
     const handleSaveAddress = async (newAddress) => {
         await updateUser({
@@ -49,10 +68,13 @@ export default function ClientHome() {
         <div className="app-container">
             {/* Header */}
             <div style={{
-                padding: '16px 16px 0',
+                padding: '16px',
                 background: 'var(--color-surface)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div onClick={() => setShowAddressModal(true)} style={{ cursor: 'pointer' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--color-primary)', fontSize: '0.75rem', fontWeight: 600 }}>
                             <MapPin size={14} />
@@ -62,7 +84,15 @@ export default function ClientHome() {
                             {user?.savedAddresses?.[0]?.street || 'Configurar dirección...'}
                         </h2>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <div className="desktop-nav-links" style={{ display: 'flex', gap: 8 }}>
+                            <button className="btn btn-ghost" style={{ padding: '8px 12px' }} onClick={() => navigate('/orders')}>
+                                <span style={{ marginRight: 6 }}>📋</span>Pedidos
+                            </button>
+                            <button className="btn btn-ghost" style={{ padding: '8px 12px' }} onClick={() => navigate('/promotions')}>
+                                <Ticket size={18} style={{ marginRight: 6 }} />Promos
+                            </button>
+                        </div>
                         {user?.role === 'admin' && (
                             <button className="btn btn-icon btn-ghost" onClick={() => navigate('/admin')} title="Ir al Dashboard">
                                 <LayoutDashboard size={20} />
@@ -75,7 +105,7 @@ export default function ClientHome() {
                 </div>
 
                 {/* Search */}
-                <div className="search-bar" style={{ marginBottom: 16 }}>
+                <div className="search-bar" style={{ maxWidth: 600 }}>
                     <Search size={18} />
                     <input
                         placeholder="¿Qué se te antoja hoy?"
@@ -140,21 +170,29 @@ export default function ClientHome() {
                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{filteredMerchants.length} resultados</span>
                 </div>
 
-                {filteredMerchants.length === 0 ? (
+                {loading ? (
+                    <div style={{ textAlign: 'center', padding: 48, color: 'var(--color-text-muted)' }}>
+                        <span style={{ fontSize: 24, marginBottom: 16, display: 'block' }}>Cargando restaurantes...</span>
+                    </div>
+                ) : filteredMerchants.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: 48, color: 'var(--color-text-muted)' }}>
                         <span style={{ fontSize: 48, marginBottom: 16, display: 'block' }}>🔍</span>
                         <p>No encontramos restaurantes</p>
                     </div>
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                        gap: '24px'
+                    }}>
                         {filteredMerchants.map(merchant => (
                             <div
                                 key={merchant.id}
                                 className="card"
                                 onClick={() => navigate(`/restaurant/${merchant.id}`)}
-                                style={{ cursor: 'pointer' }}
+                                style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}
                             >
-                                <div style={{ position: 'relative', height: 160, overflow: 'hidden' }}>
+                                <div style={{ position: 'relative', height: 180, overflow: 'hidden' }}>
                                     <img
                                         src={merchant.bannerUrl}
                                         alt={merchant.name}
@@ -180,22 +218,24 @@ export default function ClientHome() {
                                     </div>
                                 </div>
 
-                                <div className="card-body">
+                                <div className="card-body" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                                         <div>
-                                            <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 4 }}>{merchant.name}</h4>
-                                            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 8 }}>{merchant.description}</p>
+                                            <h4 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: 4 }}>{merchant.name}</h4>
+                                            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 8, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{merchant.description}</p>
                                         </div>
                                         <ChevronRight size={18} color="var(--color-text-muted)" style={{ flexShrink: 0, marginTop: 4 }} />
                                     </div>
-                                    <MerchantLoadInline merchantId={merchant.id} />
-                                    <div style={{ display: 'flex', gap: 12, fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 4 }}>
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                            <Clock size={12} /> {isRaining ? applyWeatherDelay(merchant.deliveryTime, weather?.condition) : merchant.deliveryTime} min
-                                            {isRaining && <span style={{ color: 'var(--color-warning)', fontWeight: 700, fontSize: '0.65rem' }}>⚠️</span>}
-                                        </span>
-                                        <span>Envío ${isRaining ? adjustedDeliveryFee(merchant.deliveryFee, weather?.condition) : merchant.deliveryFee}</span>
-                                        <span>{(merchant.totalOrders || 0).toLocaleString()} pedidos</span>
+                                    <div style={{ marginTop: 'auto' }}>
+                                        <MerchantLoadInline merchantId={merchant.id} />
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: 8 }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <Clock size={12} /> {isRaining ? applyWeatherDelay(merchant.deliveryTime, weather?.condition) : merchant.deliveryTime} min
+                                                {isRaining && <span style={{ color: 'var(--color-warning)', fontWeight: 700, fontSize: '0.65rem' }}>⚠️</span>}
+                                            </span>
+                                            <span>Envío ${isRaining ? adjustedDeliveryFee(merchant.deliveryFee, weather?.condition) : merchant.deliveryFee}</span>
+                                            <span>{(merchant.totalOrders || 0).toLocaleString()} pedidos</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

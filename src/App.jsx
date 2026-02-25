@@ -28,6 +28,7 @@ import MerchantSettings from './pages/merchant/MerchantSettings';
 import DriverHome from './pages/delivery/AvailableOrders';
 import ActiveDelivery from './pages/delivery/ActiveDelivery';
 import DriverWallet from './pages/delivery/Wallet';
+import DriverProfile from './pages/delivery/DriverProfile';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -92,6 +93,7 @@ function AppRoutes() {
       <Route path="/delivery" element={<ProtectedRoute allowedRoles={['driver']}><DriverHome /></ProtectedRoute>} />
       <Route path="/delivery/active/:orderId" element={<ProtectedRoute allowedRoles={['driver']}><ActiveDelivery /></ProtectedRoute>} />
       <Route path="/delivery/wallet" element={<ProtectedRoute allowedRoles={['driver']}><DriverWallet /></ProtectedRoute>} />
+      <Route path="/delivery/profile" element={<ProtectedRoute allowedRoles={['driver']}><DriverProfile /></ProtectedRoute>} />
 
       {/* Admin Routes */}
       <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />

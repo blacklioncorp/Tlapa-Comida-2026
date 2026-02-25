@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { supabase } from '../../supabase';
 import {
     LayoutDashboard, UtensilsCrossed, ShoppingBag, Settings,
     LogOut, Save, Store, Clock, MapPin, Camera, AlertOctagon
@@ -52,10 +51,8 @@ export default function MerchantSettings() {
                 return;
             }
             try {
-                const docRef = doc(db, 'restaurants', merchantId);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
+                const { data, error } = await supabase.from('merchants').select('*').eq('id', merchantId).single();
+                if (data && !error) {
                     setForm(prev => ({
                         ...prev,
                         ...data,
@@ -93,15 +90,16 @@ export default function MerchantSettings() {
     const handleSave = async () => {
         if (!merchantId) return;
         try {
-            const docRef = doc(db, 'restaurants', merchantId);
-            await setDoc(docRef, {
+            const { error } = await supabase.from('merchants').update({
                 ...form,
-                address: {
+                address: JSON.stringify({
                     street: form.addressStreet,
                     colony: form.addressColony
-                },
-                updatedAt: serverTimestamp()
-            }, { merge: true });
+                }),
+                updatedAt: new Date().toISOString()
+            }).eq('id', merchantId);
+
+            if (error) throw error;
 
             setSaved(true);
             setTimeout(() => setSaved(false), 2500);
@@ -115,11 +113,12 @@ export default function MerchantSettings() {
         if (!window.confirm("🚨 ¿ESTÁS SEGURO? Esto cerrará tu restaurante inmediatamente en la app de clientes, ignorando tus horarios normales.")) return;
 
         try {
-            const docRef = doc(db, 'restaurants', merchantId);
-            await setDoc(docRef, {
+            const { error } = await supabase.from('merchants').update({
                 isOpen: false,
-                updatedAt: serverTimestamp()
-            }, { merge: true });
+                updatedAt: new Date().toISOString()
+            }).eq('id', merchantId);
+
+            if (error) throw error;
 
             setForm(prev => ({ ...prev, isOpen: false }));
             alert("Tienda CERRADA. Ya no estás visible para nuevos pedidos.");

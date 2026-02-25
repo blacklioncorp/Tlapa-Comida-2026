@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, X, Trash2, Save } from 'lucide-react';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { supabase } from '../supabase';
 
 export default function ModifierDishModal({ merchantId, editingItem, onClose }) {
     // Estado base del platillo
@@ -13,7 +12,7 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose }) 
         imageUrl: editingItem?.image || '',
         isAvailable: editingItem?.isAvailable ?? true,
         // Estado de Modificadores inicializado dinámicamente
-        modifierGroups: editingItem?.modifierGroups || []
+        modifierGroups: editingItem?.modifiers || editingItem?.modifierGroups || []
     });
 
     // ---- MANEJADORES DE MODIFICADORES ---- //
@@ -70,24 +69,34 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose }) 
         setFormData({ ...formData, modifierGroups: newGroups });
     };
 
-    // ---- GUARDAR EN FIRESTORE ---- //
+    // ---- GUARDAR EN SUPABASE ---- //
     const handleSave = async (e) => {
         e.preventDefault();
         try {
             const isNew = !editingItem?.id;
             const itemId = editingItem?.id || `item-${Date.now()}`;
-            const itemRef = doc(db, 'restaurants', merchantId, 'menu', itemId);
 
             const payload = {
-                ...formData,
-                price: Number(formData.basePrice), // Backwards compatibility
-                image: formData.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500', // backward compatible image logic
-                updatedAt: serverTimestamp()
+                id: itemId,
+                merchantId,
+                name: formData.name,
+                description: formData.description,
+                price: Number(formData.basePrice),
+                originalPrice: Number(formData.basePrice),
+                category: formData.category,
+                imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500',
+                isAvailable: formData.isAvailable,
+                modifiers: formData.modifierGroups
             };
 
-            if (isNew) payload.createdAt = serverTimestamp();
+            if (isNew) {
+                const { error } = await supabase.from('products').insert([payload]);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('products').update({ ...payload, updatedAt: new Date().toISOString() }).eq('id', itemId);
+                if (error) throw error;
+            }
 
-            await setDoc(itemRef, payload, { merge: true });
             onClose(); // Cierra el modal tras guardar exitosamente
         } catch (error) {
             console.error("Error al guardar el platillo: ", error);
