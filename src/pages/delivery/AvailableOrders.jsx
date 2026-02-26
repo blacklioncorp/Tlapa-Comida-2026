@@ -5,6 +5,7 @@ import { useOrders } from '../../contexts/OrderContext';
 import { useSmartDelivery } from '../../contexts/SmartDeliveryContext';
 import { supabase } from '../../supabase';
 import { haversineDistance, calculateOrderPriority } from '../../services/SmartOrderManager';
+import { TLAPA_CENTER } from '../../services/MapsCache';
 import { MapPin, Navigation, Star, CheckCircle, Power, User, History, Wallet, Store, Utensils } from 'lucide-react';
 import DriverLocationMap from '../../components/DriverLocationMap';
 
@@ -52,12 +53,14 @@ export default function AvailableOrders() {
 
         fetchIncoming();
 
-        const subscription = supabase.channel('public:orders:radar')
+        const subscription = supabase.channel(`public:orders:radar:${user.id}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
                 // Either new searching_driver, or an order got accepted by someone else and changed status
                 fetchIncoming();
             })
-            .subscribe();
+            .subscribe((status, err) => {
+                if (err) console.warn('[AvailableOrders] Supabase sync error:', err);
+            });
 
         return () => {
             supabase.removeChannel(subscription);
@@ -76,21 +79,52 @@ export default function AvailableOrders() {
         .reduce((sum, o) => sum + (o.totals.deliveryFee || 0), 0);
     const todayDeliveries = orders.filter(o => o.driverId === user.id && o.status === 'delivered').length;
 
-    let driverLocation = user.currentLocation;
+    let initialLocation = user.currentLocation;
     try {
         const saved = localStorage.getItem('tlapa_driver_locations');
         if (saved) {
             const locs = JSON.parse(saved);
-            if (locs[user.id]) driverLocation = locs[user.id];
+            if (locs[user.id]) initialLocation = locs[user.id];
         }
     } catch { }
+
+    const [liveLocation, setLiveLocation] = useState(initialLocation);
+
+    const requestGps = () => {
+        if (!navigator.geolocation) {
+            alert('Tu navegador no soporta geolocalización.');
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
+                setLiveLocation(pos);
+                // Opcionalmente guardar localmente
+                try {
+                    const locs = JSON.parse(localStorage.getItem('tlapa_driver_locations') || '{}');
+                    locs[user.id] = pos;
+                    localStorage.setItem('tlapa_driver_locations', JSON.stringify(locs));
+                } catch { }
+            },
+            (error) => {
+                let msg = 'Error desconocido obteniendo ubicación.';
+                if (error.code === 1) msg = 'Permiso de ubicación denegado. Por favor, habilítalo en la configuración de la app o navegador.';
+                if (error.code === 2) msg = 'Ubicación no disponible en este momento.';
+                if (error.code === 3) msg = 'Tiempo de espera agotado al buscar ubicación.';
+                alert(msg);
+                console.warn('GPS Error:', error);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    };
 
     const enrichedOrders = radarOrders.map(order => {
         const merchant = order.merchant;
         let distanceKm = null;
-        if (driverLocation && merchant?.location) {
+        if (liveLocation && merchant?.location) {
             distanceKm = haversineDistance(
-                driverLocation.lat, driverLocation.lng,
+                liveLocation.lat, liveLocation.lng,
                 merchant.location.lat, merchant.location.lng
             );
         }
@@ -118,7 +152,7 @@ export default function AvailableOrders() {
         <div className="app-container" style={{ padding: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {/* Background Map - Full screen */}
             <div className="fullscreen-map-container" style={{ zIndex: 0 }}>
-                <DriverLocationMap driverLocation={driverLocation} height="100vh" />
+                <DriverLocationMap driverLocation={liveLocation || TLAPA_CENTER} height="100vh" />
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(230,230,220,0.9) 0%, rgba(240,240,230,0.7) 30%, transparent 60%, rgba(255,255,255,0.95) 80%)', pointerEvents: 'none' }} />
             </div>
 
@@ -185,7 +219,7 @@ export default function AvailableOrders() {
 
                 {/* Center Map Locator Button */}
                 <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
-                    <button style={{ width: 48, height: 48, borderRadius: 16, background: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <button onClick={requestGps} style={{ width: 48, height: 48, borderRadius: 16, background: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Navigation size={24} color="#334155" />
                     </button>
                 </div>

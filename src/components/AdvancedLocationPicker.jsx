@@ -47,6 +47,8 @@ export default function AdvancedLocationPicker({ currentAddress, onSave, onClose
             const { Map } = await importLibrary('maps');
             const { Geocoder } = await importLibrary('geocoding');
 
+            if (!mapContainerRef.current) return;
+
             geocoderRef.current = new Geocoder();
 
             const initialPos = location || TLAPA_CENTER;
@@ -144,16 +146,31 @@ export default function AdvancedLocationPicker({ currentAddress, onSave, onClose
     };
 
     const requestGps = () => {
-        if (navigator.geolocation && mapRef.current) {
-            navigator.geolocation.getCurrentPosition((position) => {
-                const gpsPos = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                };
-                mapRef.current.panTo(gpsPos);
-                setLocation(gpsPos);
-                reverseGeocode(gpsPos);
-            });
+        if (!navigator.geolocation) {
+            alert('Tu navegador no soporta geolocalización.');
+            return;
+        }
+
+        if (mapRef.current) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const gpsPos = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude,
+                    };
+                    mapRef.current.panTo(gpsPos);
+                    setLocation(gpsPos);
+                    reverseGeocode(gpsPos);
+                },
+                (error) => {
+                    let msg = 'Error desconocido obteniendo ubicación.';
+                    if (error.code === 1) msg = 'Permiso de ubicación denegado. Por favor, habilítalo en la configuración de tu navegador/teléfono.';
+                    if (error.code === 2) msg = 'Ubicación no disponible.';
+                    if (error.code === 3) msg = 'Tiempo de espera agotado.';
+                    alert(msg);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
         }
     };
 
@@ -330,7 +347,7 @@ export default function AdvancedLocationPicker({ currentAddress, onSave, onClose
                                 padding: '10px 20px', borderRadius: 20, border: 'none', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer',
                                 background: addressTag === tag ? '#1e293b' : 'white',
                                 color: addressTag === tag ? 'white' : '#64748b',
-                                border: addressTag === tag ? 'none' : '1px solid #e2e8f0'
+                                border: addressTag === tag ? '1px solid #1e293b' : '1px solid #e2e8f0'
                             }}>
                             {tag}
                         </button>

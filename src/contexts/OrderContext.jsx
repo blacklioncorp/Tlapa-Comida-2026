@@ -80,6 +80,11 @@ export function OrderProvider({ children }) {
         let subscription = null;
 
         const fetchInitialOrders = async () => {
+            if (!user?.id) {
+                setLoading(false);
+                return;
+            }
+
             let query = supabase.from('orders').select('*').order('createdAt', { ascending: false });
 
             if (user.role === 'admin') {
@@ -104,7 +109,8 @@ export function OrderProvider({ children }) {
         const startListening = () => {
             if (subscription) return;
 
-            subscription = supabase.channel('public:orders')
+            // Use a unique channel name per session/mount to avoid StrictMode or multi-tab collisions
+            subscription = supabase.channel(`public:orders-ctx-${user?.id}-${Date.now()}`)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
                     // Update state optimistically based on incoming change
                     setOrders(current => {
