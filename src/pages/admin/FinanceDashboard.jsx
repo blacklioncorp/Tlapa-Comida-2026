@@ -8,7 +8,7 @@ import {
     DollarSign, TrendingUp, Wallet, ArrowUpRight, ArrowDownRight,
     Building2, Bike, Smartphone, Filter, Download, ChevronDown, ChevronUp,
     CircleDollarSign, Scale, Receipt, Percent, LayoutGrid, Gift
-} from 'lucide-react';
+, Truck } from 'lucide-react';
 
 export default function FinanceDashboard() {
     const { logout } = useAuth();
@@ -241,6 +241,10 @@ export default function FinanceDashboard() {
                         <LayoutGrid size={18} /> Categorías
                     </button>
                     <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
+                        <Users size={18} /> Usuarios
+                    </button>
+                    <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
+                        <Truck size={18} /> Repartidores
                         <Users size={18} /> Usuarios
                     </button>
                     <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>

@@ -73,6 +73,10 @@ export default function OrdersManagement() {
                     <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
                         <Users size={18} /> Usuarios
                     </button>
+                    <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
+                        <Truck size={18} /> Repartidores
+                        <Users size={18} /> Usuarios
+                    </button>
                     <button className="sidebar-link active">
                         <ShoppingBag size={18} /> Pedidos
                     </button>

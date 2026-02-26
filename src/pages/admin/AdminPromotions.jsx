@@ -8,7 +8,7 @@ import {
     Tag, Plus, Search, Edit3, Trash2, Copy, ToggleLeft, ToggleRight,
     Calendar, UserCheck, Clock, ShieldCheck, Percent, CreditCard, X, Save,
     Gift, TrendingUp, AlertCircle, ChevronDown, ChevronUp, Eye, EyeOff, Filter
-} from 'lucide-react';
+, Truck } from 'lucide-react';
 
 const DISCOUNT_TYPE_LABELS = {
     percentage: { label: 'Porcentaje', icon: '🏷️', suffix: '%' },
@@ -541,6 +541,10 @@ export default function AdminPromotions() {
                         <LayoutGrid size={18} /> Categorías
                     </button>
                     <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
+                        <Users size={18} /> Usuarios
+                    </button>
+                    <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
+                        <Truck size={18} /> Repartidores
                         <Users size={18} /> Usuarios
                     </button>
                     <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>

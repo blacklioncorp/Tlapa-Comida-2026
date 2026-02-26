@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Save, Bell, Globe, DollarSign, Shield, Palette, Plus, X, Tag, LayoutGrid, Gift } from 'lucide-react';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Save, Bell, Globe, DollarSign, Shield, Palette, Plus, X, Tag, LayoutGrid, Gift , Truck } from 'lucide-react';
 
 export default function AdminSettings() {
     const { logout } = useAuth();
@@ -76,6 +76,10 @@ export default function AdminSettings() {
                         <LayoutGrid size={18} /> Categorías
                     </button>
                     <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
+                        <Users size={18} /> Usuarios
+                    </button>
+                    <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
+                        <Truck size={18} /> Repartidores
                         <Users size={18} /> Usuarios
                     </button>
                     <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>

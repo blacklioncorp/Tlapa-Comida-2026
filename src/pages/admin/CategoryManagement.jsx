@@ -6,7 +6,7 @@ import {
     BarChart3, Store, Users, ShoppingBag, Settings, LogOut,
     Plus, Trash2, Save, X, DollarSign, LayoutGrid, Gift,
     Image as ImageIcon, Smile, Type, Eye
-} from 'lucide-react';
+, Truck } from 'lucide-react';
 import ImageUpload from '../../components/ImageUpload';
 
 const EMOJI_OPTIONS = [
@@ -66,6 +66,10 @@ export default function CategoryManagement() {
                         <LayoutGrid size={18} /> Categorías
                     </button>
                     <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
+                        <Users size={18} /> Usuarios
+                    </button>
+                    <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
+                        <Truck size={18} /> Repartidores
                         <Users size={18} /> Usuarios
                     </button>
                     <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
