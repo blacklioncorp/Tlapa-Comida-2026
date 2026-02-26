@@ -96,6 +96,8 @@ export default function MenuManager() {
         }
     };
 
+    const existingCategories = [...new Set(menu.map(item => item.category).filter(Boolean))];
+
     // 3. MENÚ REAL DESDE FIRESTORE
     // Abandonados los datos semilla simulados. Ahora cualquier platillo nuevo
     // agregado vía "Nuevo Platillo" se mostrará automáticamente aquí por onSnapshot.

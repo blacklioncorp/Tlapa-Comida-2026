@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Plus, X, Trash2, Save } from 'lucide-react';
 import { supabase } from '../supabase';
+import ImageUpload from './ImageUpload';
 
-export default function ModifierDishModal({ merchantId, editingItem, onClose }) {
+export default function ModifierDishModal({ merchantId, editingItem, onClose, existingCategories = [] }) {
     // Estado base del platillo
     const [formData, setFormData] = useState({
         name: editingItem?.name || '',
@@ -126,7 +127,18 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose }) 
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
                             <label className="form-label">Categoría</label>
-                            <input className="form-input" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} required placeholder="Ej. Hamburguesas" />
+                            <input
+                                className="form-input"
+                                list="category-list"
+                                value={formData.category}
+                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                required placeholder="Ej. Hamburguesas"
+                            />
+                            <datalist id="category-list">
+                                {existingCategories.map((cat, idx) => (
+                                    <option key={idx} value={cat} />
+                                ))}
+                            </datalist>
                         </div>
                     </div>
 
@@ -135,9 +147,18 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose }) 
                         <textarea className="form-input" rows="3" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} required placeholder="Ingredientes y descripción..." />
                     </div>
 
-                    <div className="form-group">
-                        <label className="form-label">URL Fotografía (Opcional)</label>
-                        <input className="form-input" type="url" value={formData.imageUrl} onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })} placeholder="https://..." />
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label">Fotografía del Platillo (Opcional)</label>
+                        <div style={{ marginTop: 8 }}>
+                            <ImageUpload
+                                currentImage={formData.imageUrl}
+                                onImageChange={(base64) => setFormData({ ...formData, imageUrl: base64 })}
+                                shape="banner"
+                                size={140}
+                                label=""
+                                id="dish-image"
+                            />
+                        </div>
                     </div>
 
                     <hr style={{ margin: '32px 0 24px', borderColor: 'var(--color-border-light)' }} />

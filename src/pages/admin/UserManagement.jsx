@@ -3,6 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Shield, Ban, FileText, Star, X, Phone, Camera, Plus, Key, Bike, Truck, DollarSign, LayoutGrid, Gift, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../supabase';
+import AdvancedLocationPicker from '../../components/AdvancedLocationPicker';
+
+const VEHICLE_BRANDS = [
+    'Honda', 'Yamaha', 'Suzuki', 'Italika', 'Bajaj', 'Vento', 'KTM', 'TVS',
+    'Nissan', 'Chevrolet', 'Volkswagen', 'Toyota', 'Kia', 'Ford', 'Mazda'
+];
 
 // SAMPLE_CLIENTS left intact here...
 const SAMPLE_CLIENTS = [
@@ -24,8 +30,8 @@ export default function UserManagement() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [amountPaid, setAmountPaid] = useState('');
 
-    // Configuración del modal de Alta/Edición
     const [isAddDriverOpen, setIsAddDriverOpen] = useState(false);
+    const [showDriverAddressPicker, setShowDriverAddressPicker] = useState(false);
     const [driverForm, setDriverForm] = useState({
         name: '', email: '', phone: '', address: '',
         vehicleType: 'moto', vehicleBrand: '', vehiclePlates: '',
@@ -127,8 +133,40 @@ export default function UserManagement() {
 
     const handleSaveDriver = async (e) => {
         e.preventDefault();
-        alert("La creación de credenciales de acceso se ha migrado a Supabase Auth. Por favor, crea al repartidor desde el panel de Supabase Auth, y luego edítale los detalles operativos desde aquí o desde la base de datos.");
-        setIsAddDriverOpen(false);
+        try {
+            const newDriver = {
+                id: `driver-${Date.now()}`,
+                displayName: driverForm.name,
+                email: driverForm.email,
+                phone: driverForm.phone,
+                role: 'driver',
+                isVerified: false,
+                isBlocked: false,
+                cashInHand: 0,
+                vehicleAttributes: {
+                    type: driverForm.vehicleType,
+                    brand: driverForm.vehicleBrand,
+                    plates: driverForm.vehiclePlates
+                },
+                isExclusive: driverForm.isExclusive,
+                assignedRestaurantId: driverForm.assignedRestaurantId || null,
+                createdAt: new Date().toISOString()
+            };
+
+            const { error } = await supabase.from('users').insert([newDriver]);
+            if (error) throw error;
+
+            alert("Perfil de repartidor guardado. El repartidor debe registrarse en la aplicación usando el mismo correo para que se enlacen sus datos operativos.");
+            setIsAddDriverOpen(false);
+            setDriverForm({
+                name: '', email: '', phone: '', address: '',
+                vehicleType: 'moto', vehicleBrand: '', vehiclePlates: '',
+                isExclusive: false, assignedRestaurantId: ''
+            });
+        } catch (error) {
+            console.error(error);
+            alert("Error al guardar: " + error.message);
+        }
     };
 
     return (
@@ -309,7 +347,27 @@ export default function UserManagement() {
                                 <div style={{ flex: 1 }}><input required type="tel" className="form-input" placeholder="Teléfono" value={driverForm.phone} onChange={e => setDriverForm({ ...driverForm, phone: e.target.value })} /></div>
                                 <div style={{ flex: 1 }}><input required type="email" className="form-input" placeholder="Email (Inicio sesión)" value={driverForm.email} onChange={e => setDriverForm({ ...driverForm, email: e.target.value })} /></div>
                             </div>
-                            <div className="form-group"><textarea required className="form-input" placeholder="Dirección de Residencia Completa" rows="2" value={driverForm.address} onChange={e => setDriverForm({ ...driverForm, address: e.target.value })}></textarea></div>
+                            <div className="form-group">
+                                <label className="form-label" style={{ fontSize: '0.8rem' }}>Dirección de Residencia Completa</label>
+                                <div
+                                    onClick={() => setShowDriverAddressPicker(true)}
+                                    style={{
+                                        padding: '12px 16px',
+                                        border: '2px solid var(--color-border)',
+                                        borderRadius: 'var(--radius-md)',
+                                        cursor: 'pointer',
+                                        background: 'var(--color-surface)',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <span style={{ color: driverForm.address ? 'inherit' : 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                                        {typeof driverForm.address === 'object' ? driverForm.address?.street : (driverForm.address || 'Toca para seleccionar ubicación GPS...')}
+                                    </span>
+                                    <span style={{ color: 'var(--color-primary)', fontSize: '0.85rem', fontWeight: 600 }}>Seleccionar Mapas</span>
+                                </div>
+                            </div>
 
                             <h3 style={{ fontSize: '0.95rem', margin: '24px 0 16px', color: 'var(--color-primary)' }}>2. Vehículo Operativo</h3>
                             <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
@@ -320,7 +378,12 @@ export default function UserManagement() {
                                         <option value="auto">Automóvil</option>
                                     </select>
                                 </div>
-                                <div style={{ flex: 1 }}><input required type="text" className="form-input" placeholder="Marca/Modelo" value={driverForm.vehicleBrand} onChange={e => setDriverForm({ ...driverForm, vehicleBrand: e.target.value })} /></div>
+                                <div style={{ flex: 1 }}>
+                                    <input required type="text" list="vehicle-brands" className="form-input" placeholder="Marca/Modelo" value={driverForm.vehicleBrand} onChange={e => setDriverForm({ ...driverForm, vehicleBrand: e.target.value })} />
+                                    <datalist id="vehicle-brands">
+                                        {VEHICLE_BRANDS.map(brand => <option key={brand} value={brand} />)}
+                                    </datalist>
+                                </div>
                             </div>
                             <div className="form-group"><input required type="text" className="form-input" placeholder="Placas (Ej. XY-123)" value={driverForm.vehiclePlates} onChange={e => setDriverForm({ ...driverForm, vehiclePlates: e.target.value })} /></div>
 
@@ -447,6 +510,18 @@ export default function UserManagement() {
                         </div>
                     </div>
                 </>
+            )}
+
+            {showDriverAddressPicker && (
+                <div style={{ position: 'fixed', zIndex: 9999 }}>
+                    <AdvancedLocationPicker
+                        onSave={(addr) => {
+                            setDriverForm({ ...driverForm, address: addr });
+                            setShowDriverAddressPicker(false);
+                        }}
+                        onClose={() => setShowDriverAddressPicker(false)}
+                    />
+                </div>
             )}
         </div>
     );

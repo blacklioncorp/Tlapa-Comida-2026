@@ -5,8 +5,9 @@ import { getCategories, saveCategories } from '../../data/seedData';
 import {
     BarChart3, Store, Users, ShoppingBag, Settings, LogOut,
     Plus, Trash2, Save, X, DollarSign, LayoutGrid, Gift,
-    Image, Smile, Type, Eye
+    Image as ImageIcon, Smile, Type, Eye
 } from 'lucide-react';
+import ImageUpload from '../../components/ImageUpload';
 
 const EMOJI_OPTIONS = [
     '🍕', '🍔', '🌮', '🍣', '🥗', '🍝', '🍰', '🍩',
@@ -401,28 +402,21 @@ export default function CategoryManagement() {
                                 )}
                             </div>
 
-                            {/* Image URL */}
+                            {/* Image Upload */}
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <Image size={14} /> URL de Imagen
+                                    <ImageIcon size={14} /> Imagen (Opcional)
                                 </label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    value={form.image}
-                                    onChange={e => setForm({ ...form, image: e.target.value })}
-                                    placeholder="https://ejemplo.com/imagen.jpg"
-                                />
-                                {form.image && (
-                                    <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden', height: 80 }}>
-                                        <img
-                                            src={form.image}
-                                            alt="Preview"
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                            onError={e => e.target.style.display = 'none'}
-                                        />
-                                    </div>
-                                )}
+                                <div style={{ marginTop: 8 }}>
+                                    <ImageUpload
+                                        currentImage={form.image}
+                                        onImageChange={(base64) => setForm({ ...form, image: base64 })}
+                                        shape="banner"
+                                        size={120}
+                                        label=""
+                                        id="cat-image"
+                                    />
+                                </div>
                             </div>
                         </div>
 
