@@ -447,9 +447,9 @@ export const MERCHANTS = [
 // ORDER_STATUSES — updated to match FSM
 export const ORDER_STATUSES = {
     created: { id: 'created', label: 'Pedido creado', icon: '📋', color: 'info', step: 0 },
-    confirmed: { id: 'confirmed', label: 'Confirmado', icon: '✅', color: 'info', step: 1 },
-    preparing: { id: 'preparing', label: 'Preparando', icon: '👨‍🍳', color: 'primary', step: 2 },
-    ready: { id: 'ready', label: 'Listo para envío', icon: '📦', color: 'success', step: 3 },
+    confirmed: { id: 'confirmed', label: 'Pedido Aceptado', icon: '✅', color: 'info', step: 1 },
+    preparing: { id: 'preparing', label: 'En Cocina', icon: '👨‍🍳', color: 'primary', step: 2 },
+    ready: { id: 'ready', label: 'Empaquetado y Listo', icon: '📦', color: 'success', step: 3 },
     searching_driver: { id: 'searching_driver', label: 'Buscando repartidor', icon: '🔍', color: 'warning', step: 4 },
     picked_up: { id: 'picked_up', label: 'Recogido', icon: '🛵', color: 'primary', step: 5 },
     on_the_way: { id: 'on_the_way', label: 'En camino', icon: '🚀', color: 'primary', step: 6 },

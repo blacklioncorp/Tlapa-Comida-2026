@@ -120,13 +120,13 @@ export default function MerchantDashboard() {
     const getOrderAction = (order) => {
         switch (order.status) {
             case 'created':
-                return { label: '✅ Aceptar', next: 'confirmed', color: '#16a34a', canReject: true };
+                return { label: '✅ Aceptar Pedido', next: 'confirmed', color: '#16a34a', canReject: true };
             case 'confirmed':
-                return { label: '👨‍🍳 Preparando', next: 'preparing', color: '#2563eb' };
+                return { label: '👨‍🍳 Comenzar Preparación', next: 'preparing', color: '#2563eb' };
             case 'preparing':
-                return { label: '🛵 Terminado: Pedir Repartidor', next: 'searching_driver', color: '#8b5cf6' };
-            case 'ready': // Just in case any order gets stuck here
-                return { label: '🔍 Buscar repartidor', next: 'searching_driver', color: '#8b5cf6' };
+                return { label: '📦 Empaquetar Pedido', next: 'ready', color: '#f59e0b' };
+            case 'ready':
+                return { label: '🛵 Listo para Recolección', next: 'searching_driver', color: '#8b5cf6' };
             default:
                 return null;
         }
@@ -169,12 +169,20 @@ export default function MerchantDashboard() {
                                 padding: '2px 6px', borderRadius: 4, background: '#fef3c7',
                                 fontSize: '0.6rem', fontWeight: 700, color: '#92400e',
                             }}>
-                                💵 Efectivo
+                                💵 Pago en Efectivo
+                            </span>
+                        )}
+                        {order.driverId && (
+                            <span style={{
+                                padding: '2px 6px', borderRadius: 4, background: '#dcfce7',
+                                fontSize: '0.6rem', fontWeight: 700, color: '#16a34a',
+                            }}>
+                                🛵 Repartidor Asignado
                             </span>
                         )}
                     </div>
                     <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-                        hace {minutesAgo} min
+                        {isNew ? '🔔 ¡NUEVO!' : `hace ${minutesAgo} min`}
                     </span>
                 </div>
 
@@ -226,9 +234,31 @@ export default function MerchantDashboard() {
 
                 {/* Total + Action */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                    <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--color-primary)' }}>
-                        ${order.totals?.total?.toFixed?.(2) || order.totals?.total}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-primary)' }}>
+                            ${order.totals?.total?.toFixed?.(2) || order.totals?.total}
+                        </span>
+                        {order.driverId && (
+                            <button
+                                className="btn btn-icon btn-ghost btn-sm"
+                                onClick={() => window.open(`https://wa.me/${order.driverPhone || '7570000000'}`, '_blank')}
+                                title="Contactar Repartidor"
+                                style={{ color: '#25d366' }}
+                            >
+                                <Phone size={16} />
+                            </button>
+                        )}
+                        {(order.customerPhone || order.deliveryAddress?.phone) && (
+                            <button
+                                className="btn btn-icon btn-ghost btn-sm"
+                                onClick={() => window.open(`tel:${order.customerPhone || order.deliveryAddress?.phone}`, '_self')}
+                                title="Llamar al Cliente"
+                                style={{ color: 'var(--color-primary)' }}
+                            >
+                                <Phone size={16} />
+                            </button>
+                        )}
+                    </div>
                     <div style={{ display: 'flex', gap: 8 }}>
                         {action?.canReject && (
                             <button
@@ -243,7 +273,7 @@ export default function MerchantDashboard() {
                         {action && (
                             <button
                                 className="btn btn-sm"
-                                style={{ background: action.color, color: 'white', border: 'none', fontWeight: 700, minWidth: 120 }}
+                                style={{ background: action.color, color: 'white', border: 'none', fontWeight: 700, minWidth: 140 }}
                                 onClick={() => handleTransition(order.id, action.next)}
                                 disabled={processingId === order.id}
                             >
