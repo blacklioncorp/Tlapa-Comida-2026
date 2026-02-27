@@ -16,6 +16,16 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
         modifierGroups: editingItem?.modifiers || editingItem?.modifierGroups || []
     });
 
+    const [isCustomCategory, setIsCustomCategory] = useState(false);
+    const [customCategory, setCustomCategory] = useState('');
+
+    useEffect(() => {
+        if (editingItem?.category && !existingCategories.includes(editingItem.category)) {
+            setIsCustomCategory(true);
+            setCustomCategory(editingItem.category);
+        }
+    }, [editingItem, existingCategories]);
+
     // ---- MANEJADORES DE MODIFICADORES ---- //
     const addModifierGroup = () => {
         setFormData(prev => ({
@@ -84,7 +94,7 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
                 description: formData.description,
                 price: Number(formData.basePrice),
                 originalPrice: Number(formData.basePrice),
-                category: formData.category,
+                category: isCustomCategory ? customCategory : formData.category,
                 imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500',
                 isAvailable: formData.isAvailable,
                 modifiers: formData.modifierGroups
@@ -127,20 +137,41 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
                             <label className="form-label">Categoría</label>
-                            <input
+                            <select
                                 className="form-input"
-                                list="category-list"
-                                value={formData.category}
-                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                required placeholder="Ej. Hamburguesas"
-                            />
-                            <datalist id="category-list">
+                                value={isCustomCategory ? 'OTHER' : formData.category}
+                                onChange={(e) => {
+                                    if (e.target.value === 'OTHER') {
+                                        setIsCustomCategory(true);
+                                    } else {
+                                        setIsCustomCategory(false);
+                                        setFormData({ ...formData, category: e.target.value });
+                                    }
+                                }}
+                                required
+                            >
+                                <option value="" disabled>Seleccionar...</option>
                                 {existingCategories.map((cat, idx) => (
-                                    <option key={idx} value={cat} />
+                                    <option key={idx} value={cat}>{cat}</option>
                                 ))}
-                            </datalist>
+                                <option value="OTHER">+ Nueva Categoría</option>
+                            </select>
                         </div>
                     </div>
+
+                    {isCustomCategory && (
+                        <div className="form-group" style={{ marginTop: -8, marginBottom: 20 }}>
+                            <label className="form-label">Nombre de Categoría Nueva</label>
+                            <input
+                                className="form-input"
+                                value={customCategory}
+                                onChange={(e) => setCustomCategory(e.target.value)}
+                                required
+                                placeholder="Ej: Especialidades de la Casa"
+                                autoFocus
+                            />
+                        </div>
+                    )}
 
                     <div className="form-group">
                         <label className="form-label">Descripción</label>

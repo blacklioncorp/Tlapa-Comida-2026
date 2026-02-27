@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { getCategories, saveCategories } from '../../data/seedData';
+import { supabase } from '../../supabase';
 import {
     BarChart3, Store, Users, ShoppingBag, Settings, LogOut,
     Plus, Trash2, Save, X, DollarSign, LayoutGrid, Gift,
-    Image as ImageIcon, Smile, Type, Eye
-, Truck } from 'lucide-react';
+    Image as ImageIcon, Smile, Type, Eye, Truck
+} from 'lucide-react';
 import ImageUpload from '../../components/ImageUpload';
 
 const EMOJI_OPTIONS = [
@@ -18,30 +18,80 @@ const EMOJI_OPTIONS = [
 export default function CategoryManagement() {
     const { logout } = useAuth();
     const navigate = useNavigate();
-    const [categories, setCategories] = useState(() => getCategories());
+    const [categories, setCategories] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [form, setForm] = useState({ name: '', icon: '🍕', image: '' });
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-    const handleSave = () => {
-        if (!form.name.trim()) return;
-        const newCat = {
-            ...form,
-            id: `cat-${Date.now()}`,
-            label: form.name,
+    useEffect(() => {
+        let subscription = null;
+
+        const fetchCategories = async () => {
+            try {
+                const { data, error } = await supabase.from('categories').select('*').order('name', { ascending: true });
+                if (error) throw error;
+                setCategories(data || []);
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+            } finally {
+                setLoading(false);
+            }
         };
-        const updated = [...categories, newCat];
-        setCategories(updated);
-        saveCategories(updated);
-        setIsModalOpen(false);
-        setForm({ name: '', icon: '🍕', image: '' });
+
+        const setupRealtime = () => {
+            subscription = supabase.channel('public:categories')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, payload => {
+                    if (payload.eventType === 'INSERT') {
+                        setCategories(current => [...current, payload.new].sort((a, b) => a.name.localeCompare(b.name)));
+                    } else if (payload.eventType === 'UPDATE') {
+                        setCategories(current => current.map(c => c.id === payload.new.id ? payload.new : c));
+                    } else if (payload.eventType === 'DELETE') {
+                        setCategories(current => current.filter(c => c.id !== payload.old.id));
+                    }
+                })
+                .subscribe();
+        };
+
+        fetchCategories();
+        setupRealtime();
+
+        return () => {
+            if (subscription) supabase.removeChannel(subscription);
+        };
+    }, []);
+
+    const handleSave = async () => {
+        if (!form.name.trim()) return;
+        try {
+            const newCat = {
+                id: `cat-${Date.now()}`,
+                name: form.name,
+                label: form.name,
+                icon: form.icon,
+                image: form.image,
+            };
+
+            const { error } = await supabase.from('categories').insert([newCat]);
+            if (error) throw error;
+
+            setIsModalOpen(false);
+            setForm({ name: '', icon: '🍕', image: '' });
+        } catch (error) {
+            console.error('Error saving category:', error);
+            alert('Error al guardar la categoría: ' + error.message);
+        }
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (window.confirm('¿Eliminar esta categoría? Los comercios asociados podrían quedar huérfanos.')) {
-            const updated = categories.filter(c => c.id !== id);
-            setCategories(updated);
-            saveCategories(updated);
+            try {
+                const { error } = await supabase.from('categories').delete().eq('id', id);
+                if (error) throw error;
+            } catch (error) {
+                console.error('Error deleting category:', error);
+                alert('No se pudo eliminar la categoría.');
+            }
         }
     };
 
@@ -70,7 +120,6 @@ export default function CategoryManagement() {
                     </button>
                     <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
                         <Truck size={18} /> Repartidores
-                        <Users size={18} /> Usuarios
                     </button>
                     <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
                         <ShoppingBag size={18} /> Pedidos

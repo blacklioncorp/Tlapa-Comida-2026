@@ -19,6 +19,7 @@ export default function MenuManager() {
     const [editingItem, setEditingItem] = useState(null);
     const [loading, setLoading] = useState(true);
     const [merchantInfo, setMerchantInfo] = useState(null);
+    const [globalCategories, setGlobalCategories] = useState([]);
 
     const merchantId = user?.merchantId;
 
@@ -46,6 +47,14 @@ export default function MenuManager() {
                 setMenu(pData || []);
             } catch (err) {
                 console.error("Error fetching menu:", err);
+            }
+
+            // Fetch global categories
+            try {
+                const { data: cData } = await supabase.from('categories').select('name').order('name');
+                setGlobalCategories(cData?.map(c => c.name) || []);
+            } catch (err) {
+                console.error("Error fetching categories:", err);
             }
             setLoading(false);
         };
@@ -96,7 +105,10 @@ export default function MenuManager() {
         }
     };
 
-    const existingCategories = [...new Set(menu.map(item => item.category).filter(Boolean))];
+    const dishCategories = [...new Set([
+        ...globalCategories,
+        ...menu.map(item => item.category)
+    ])].filter(Boolean).sort();
 
     // 3. MENÚ REAL DESDE FIRESTORE
     // Abandonados los datos semilla simulados. Ahora cualquier platillo nuevo
@@ -206,6 +218,7 @@ export default function MenuManager() {
                         merchantId={merchantId}
                         editingItem={editingItem}
                         onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
+                        existingCategories={dishCategories}
                     />
                 )}
             </main>

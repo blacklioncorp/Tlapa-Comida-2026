@@ -142,6 +142,25 @@ export default function Checkout() {
 
             console.log('🚨 AUDITORÍA DEL PAYLOAD LIMPIO (Checkout):', JSON.stringify(cleanPayload, null, 2));
 
+            // ==========================================
+            // CABLEADO: INTEGRACIÓN CON PASARELA DE PAGOS FUTURA
+            // ==========================================
+            if (paymentMethod !== 'cash') {
+                // TODO 1: Llamar a Edge Function de Supabase para generar Intento de Pago (ClientSecret / PreferenceId).
+                // const { data } = await supabase.functions.invoke('create-payment-intent', { body: { amount: total }});
+
+                // TODO 2: Lanzar SDK de Stripe / MercadoPago pasándole el secreto.
+                // const result = await stripe.confirmPayment(...);
+
+                // TODO 3: Si hay error, mostrar alerta y detener. Si es éxito, guardar el 'paymentId' para la base de datos.
+
+                // [DE MOMENTO: Bloquear el flujo si por error seleccionan tarjeta]
+                setSubmitError('El pago con tarjeta se habilitará muy pronto. Por favor selecciona Efectivo por el momento.');
+                setIsSubmitting(false);
+                return;
+            }
+            // ==========================================
+
             const order = await createOrder(cleanPayload);
 
             if (appliedPromo) {
@@ -370,14 +389,14 @@ export default function Checkout() {
                         </div>
                     </label>
 
-                    <label style={{
+                    <label title="Próximamente" style={{
                         display: 'flex', alignItems: 'center', gap: 12, padding: 16,
-                        border: `2px solid ${paymentMethod === 'mercadopago' ? 'var(--color-primary)' : 'var(--color-border-light)'}`,
-                        borderRadius: 12, cursor: 'pointer',
-                        background: paymentMethod === 'mercadopago' ? 'var(--color-primary-bg)' : 'white',
+                        border: `2px solid var(--color-border-light)`,
+                        borderRadius: 12, cursor: 'not-allowed', opacity: 0.6,
+                        background: '#f9fafb',
                     }}>
-                        <input type="radio" name="payment" value="mercadopago"
-                            checked={paymentMethod === 'mercadopago'} onChange={() => setPaymentMethod('mercadopago')}
+                        <input type="radio" name="payment" value="mercadopago" disabled
+                            checked={false} onChange={() => { }}
                             style={{ accentColor: 'var(--color-primary)' }} />
                         <CreditCard size={20} color="var(--color-info)" />
                         <div>
