@@ -124,8 +124,8 @@ export default function MerchantDashboard() {
             case 'confirmed':
                 return { label: '👨‍🍳 Preparando', next: 'preparing', color: '#2563eb' };
             case 'preparing':
-                return { label: '📦 Listo', next: 'ready', color: '#f59e0b' };
-            case 'ready':
+                return { label: '🛵 Terminado: Pedir Repartidor', next: 'searching_driver', color: '#8b5cf6' };
+            case 'ready': // Just in case any order gets stuck here
                 return { label: '🔍 Buscar repartidor', next: 'searching_driver', color: '#8b5cf6' };
             default:
                 return null;

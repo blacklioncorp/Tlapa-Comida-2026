@@ -39,6 +39,7 @@ import AdminSettings from './pages/admin/AdminSettings';
 import FinanceDashboard from './pages/admin/FinanceDashboard';
 import CategoryManagement from './pages/admin/CategoryManagement';
 import AdminPromotions from './pages/admin/AdminPromotions';
+import DeliveryManagement from './pages/admin/DeliveryManagement';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -100,6 +101,7 @@ function AppRoutes() {
       <Route path="/admin/merchants" element={<ProtectedRoute allowedRoles={['admin']}><MerchantManagement /></ProtectedRoute>} />
       <Route path="/admin/categories" element={<ProtectedRoute allowedRoles={['admin']}><CategoryManagement /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><UserManagement /></ProtectedRoute>} />
+      <Route path="/admin/delivery" element={<ProtectedRoute allowedRoles={['admin']}><DeliveryManagement /></ProtectedRoute>} />
       <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><OrdersManagement /></ProtectedRoute>} />
       <Route path="/admin/promotions" element={<ProtectedRoute allowedRoles={['admin']}><AdminPromotions /></ProtectedRoute>} />
       <Route path="/admin/finance" element={<ProtectedRoute allowedRoles={['admin']}><FinanceDashboard /></ProtectedRoute>} />

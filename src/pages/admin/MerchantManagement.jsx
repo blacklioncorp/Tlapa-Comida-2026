@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getCategories } from '../../data/seedData';
 import { supabase } from '../../supabase';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Star, Edit2, Trash2, X, Save, Camera, Key, DollarSign, LayoutGrid, Gift , Truck } from 'lucide-react';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Star, Edit2, Trash2, X, Save, Camera, Key, DollarSign, LayoutGrid, Gift, Truck, Unlock } from 'lucide-react';
 import ImageUpload from '../../components/ImageUpload';
 import AdvancedLocationPicker from '../../components/AdvancedLocationPicker';
 
@@ -42,7 +42,8 @@ export default function MerchantManagement() {
         deliveryFee: 20,
         minOrder: 100,
         address: '',
-        image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
+        logoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
+        ownerEmail: '',
         isOpen: true,
         rating: 5.0,
         reviews: 0,
@@ -65,7 +66,8 @@ export default function MerchantManagement() {
             deliveryFee: 20,
             minOrder: 100,
             address: '',
-            image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
+            logoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
+            ownerEmail: '',
             isOpen: true,
             isOpen: true,
             rating: 5.0,
@@ -123,6 +125,30 @@ export default function MerchantManagement() {
         if (window.confirm('¿Estás seguro de eliminar este comercio?')) {
             const { error } = await supabase.from('merchants').delete().eq('id', id);
             if (error) alert("Error eliminando comercio: " + error.message);
+        }
+    };
+
+    const handleTogglePremium = async (merchant) => {
+        const confirmMsg = merchant.isPremium
+            ? `¿Quitarle el estado Premium a ${merchant.name}?\n\nVolverá a tener el límite de cambios de diseño (1 vez).`
+            : `¿Otorgar membresía Premium a ${merchant.name}?\n\nPodrá modificar el nombre, colores, banners y logos sin restricción alguna.`;
+
+        if (window.confirm(confirmMsg)) {
+            const { error } = await supabase.from('merchants').update({
+                isPremium: !merchant.isPremium,
+                updatedAt: new Date().toISOString()
+            }).eq('id', merchant.id);
+            if (error) alert("Error al actualizar la suscripción: " + error.message);
+        }
+    };
+
+    const handleResetAttempts = async (merchant) => {
+        if (window.confirm(`¿Resetear cambios agotados a ${merchant.name}?\n\nEsto le dará nuevamente 1 oportunidad gratuita de cambiar su diseño visual (ideal si pagaron por un cambio único extra sin necesidad de darles Premium).`)) {
+            const { error } = await supabase.from('merchants').update({
+                customizationAttempts: 0,
+                updatedAt: new Date().toISOString()
+            }).eq('id', merchant.id);
+            if (error) alert("Error al resetear oportunidades: " + error.message);
         }
     };
 
@@ -209,7 +235,7 @@ export default function MerchantManagement() {
                                         <td>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                                 <img
-                                                    src={merchant.image}
+                                                    src={merchant.logoUrl || merchant.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800'}
                                                     alt={merchant.name}
                                                     style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }}
                                                 />
@@ -246,10 +272,18 @@ export default function MerchantManagement() {
                                         </td>
                                         <td>
                                             <div style={{ display: 'flex', gap: 8 }}>
-                                                <button className="btn btn-icon btn-ghost" onClick={() => openEditModal(merchant)}>
+                                                <button title="Editar" className="btn btn-icon btn-ghost" onClick={() => openEditModal(merchant)}>
                                                     <Edit2 size={16} />
                                                 </button>
-                                                <button className="btn btn-icon btn-ghost" onClick={() => handleDelete(merchant.id)}>
+                                                <button title={merchant.isPremium ? "Quitar Premium" : "Otorgar Premium"} className="btn btn-icon btn-ghost" onClick={() => handleTogglePremium(merchant)} style={{ color: merchant.isPremium ? '#d97706' : 'var(--color-text-muted)' }}>
+                                                    <Star size={16} fill={merchant.isPremium ? 'currentColor' : 'none'} />
+                                                </button>
+                                                {!merchant.isPremium && merchant.customizationAttempts >= 1 && (
+                                                    <button title="Resetear Intentos de Diseño a 0 (Dar 1 oportunidad extra)" className="btn btn-icon btn-ghost" onClick={() => handleResetAttempts(merchant)} style={{ color: '#2563eb' }}>
+                                                        <Unlock size={16} />
+                                                    </button>
+                                                )}
+                                                <button title="Eliminar Comercio" className="btn btn-icon btn-ghost" onClick={() => handleDelete(merchant.id)}>
                                                     <Trash2 size={16} color="var(--color-error)" />
                                                 </button>
                                             </div>
@@ -281,6 +315,19 @@ export default function MerchantManagement() {
                                         className="form-input"
                                         value={form.name}
                                         onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        Correo del Dueño
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 'normal' }}>(Permitirá que el dueño se registre gratis)</span>
+                                    </label>
+                                    <input
+                                        type="email"
+                                        className="form-input"
+                                        value={form.ownerEmail}
+                                        placeholder="Ej: restaurante@ejemplo.com"
+                                        onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })}
                                     />
                                 </div>
                                 <div className="form-group">
@@ -348,8 +395,8 @@ export default function MerchantManagement() {
                                     <label className="form-label">Imagen/Fotografía del Comercio</label>
                                     <div style={{ marginTop: 8 }}>
                                         <ImageUpload
-                                            currentImage={form.image}
-                                            onImageChange={(base64) => setForm({ ...form, image: base64 })}
+                                            currentImage={form.logoUrl || form.image}
+                                            onImageChange={(base64) => setForm({ ...form, logoUrl: base64 })}
                                             shape="banner"
                                             size={160}
                                             label=""
@@ -372,6 +419,7 @@ export default function MerchantManagement() {
             {/* Selector de Mapa en Pantalla Completa */}
             {showAddressPicker && (
                 <AdvancedLocationPicker
+                    hideDetails={true}
                     onSave={(addr) => {
                         setForm({ ...form, address: addr });
                         setShowAddressPicker(false);

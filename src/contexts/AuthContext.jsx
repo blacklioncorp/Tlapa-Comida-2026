@@ -59,6 +59,22 @@ export function AuthProvider({ children }) {
 
         // No DB doc found — try to save one (non-blocking)
         try {
+            // Check if user is pre-authorized as a merchant
+            try {
+                const { data: merchantData } = await supabase
+                    .from('merchants')
+                    .select('id')
+                    .eq('ownerEmail', fbUser.email)
+                    .single();
+
+                if (merchantData) {
+                    fallbackUser.role = 'merchant';
+                    fallbackUser.merchantId = merchantData.id;
+                }
+            } catch (e) {
+                console.warn('Checks for merchant pre-authorization failed:', e.message);
+            }
+
             await supabase.from('users').insert([{ ...fallbackUser, id: fbUser.id }]);
         } catch (e) {
             console.warn('Supabase DB write skipped:', e.message);
@@ -195,11 +211,31 @@ export function AuthProvider({ children }) {
             if (error) throw error;
             const sbUser = data.user;
 
+            // Check if user is pre-authorized as a merchant owner
+            let finalRole = role || 'client';
+            let finalMerchantId = null;
+
+            try {
+                const { data: merchantData } = await supabase
+                    .from('merchants')
+                    .select('id')
+                    .eq('ownerEmail', email)
+                    .single();
+
+                if (merchantData && merchantData.id) {
+                    finalRole = 'merchant';
+                    finalMerchantId = merchantData.id;
+                }
+            } catch (e) {
+                console.warn('Pre-auth merchant check failed', e.message);
+            }
+
             const newUserData = {
                 id: sbUser.id,
                 email,
                 displayName,
-                role: role || 'client',
+                role: finalRole,
+                merchantId: finalMerchantId,
                 phone: phone || '',
                 isActive: true,
                 avatarUrl: '',

@@ -17,7 +17,7 @@ const DELIVERY_METHODS = [
     { id: 'reception', label: 'Encontrarse en la recepción de abajo' },
 ];
 
-export default function AdvancedLocationPicker({ currentAddress, onSave, onClose }) {
+export default function AdvancedLocationPicker({ currentAddress, onSave, onClose, hideDetails = false }) {
     const [step, setStep] = useState(1); // 1: Map Picker, 2: Address Details
     const [isLoaded, setIsLoaded] = useState(false);
     const [loadError, setLoadError] = useState(false);
@@ -125,7 +125,18 @@ export default function AdvancedLocationPicker({ currentAddress, onSave, onClose
 
     const handleConfirmLocation = () => {
         if (!location) return;
-        setStep(2);
+
+        if (hideDetails) {
+            // Skip step 2 entirely
+            onSave({
+                label: addressTag,
+                street: streetLabel,
+                colony: colonyLabel,
+                location: location || TLAPA_CENTER
+            });
+        } else {
+            setStep(2);
+        }
     };
 
     const handleSave = () => {

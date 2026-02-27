@@ -25,6 +25,10 @@ export default function MerchantSettings() {
     const [saved, setSaved] = useState(false);
     const [loading, setLoading] = useState(true);
 
+    // Password state
+    const [newPassword, setNewPassword] = useState('');
+    const [passwordStatus, setPasswordStatus] = useState('');
+
     const merchantId = user?.merchantId;
 
     const [form, setForm] = useState({
@@ -41,8 +45,13 @@ export default function MerchantSettings() {
         logoUrl: '',
         isOpen: true,
         prepTimeMinutes: 20,
-        schedule: DEFAULT_SCHEDULE
+        schedule: DEFAULT_SCHEDULE,
+        primaryColor: '#e14a27', // Default Tlapa color
     });
+
+    // Freemium limits
+    const [customizationAttempts, setCustomizationAttempts] = useState(0);
+    const [isPremium, setIsPremium] = useState(false);
 
     useEffect(() => {
         const fetchMerchant = async () => {
@@ -56,12 +65,14 @@ export default function MerchantSettings() {
                     setForm(prev => ({
                         ...prev,
                         ...data,
-                        addressStreet: data.address?.street || data.addressStreet || '',
                         addressColony: data.address?.colony || data.addressColony || '',
                         schedule: data.schedule || DEFAULT_SCHEDULE,
                         prepTimeMinutes: data.prepTimeMinutes || 20,
-                        isOpen: data.isOpen ?? true
+                        isOpen: data.isOpen ?? true,
+                        primaryColor: data.brandData?.primaryColor || '#e14a27',
                     }));
+                    setCustomizationAttempts(data.customizationAttempts || 0);
+                    setIsPremium(data.isPremium || false);
                 }
             } catch (error) {
                 console.error("Error fetching merchant data:", error);
@@ -90,22 +101,67 @@ export default function MerchantSettings() {
     const handleSave = async () => {
         if (!merchantId) return;
         try {
+            // Determine if customization was attempted (Identity visual fields)
+            const isEditingIdentity = true; // We save everything together for now
+            let newAttempts = customizationAttempts;
+
+            // If they are not premium and editing identity, increment their counter
+            if (isEditingIdentity && !isPremium) {
+                newAttempts += 1;
+            }
+
             const { error } = await supabase.from('merchants').update({
-                ...form,
+                name: form.name,
+                description: form.description,
+                phone: form.phone,
+                deliveryTime: form.deliveryTime,
+                deliveryFee: form.deliveryFee,
+                minOrder: form.minOrder,
+                isOpen: form.isOpen,
+                prepTimeMinutes: form.prepTimeMinutes,
+                schedule: form.schedule,
                 address: JSON.stringify({
                     street: form.addressStreet,
                     colony: form.addressColony
                 }),
+                brandData: {
+                    primaryColor: form.primaryColor,
+                    logoUrl: form.logoUrl,
+                    bannerUrl: form.bannerUrl
+                },
+                customizationAttempts: newAttempts,
                 updatedAt: new Date().toISOString()
             }).eq('id', merchantId);
 
             if (error) throw error;
 
+            setCustomizationAttempts(newAttempts);
             setSaved(true);
             setTimeout(() => setSaved(false), 2500);
         } catch (error) {
             console.error("Error saving merchant settings:", error);
             alert("No se pudo guardar la configuración.");
+        }
+    };
+
+    const handleChangePassword = async () => {
+        if (!newPassword || newPassword.length < 6) {
+            setPasswordStatus('error:La contraseña debe tener al menos 6 caracteres.');
+            return;
+        }
+
+        setPasswordStatus('loading:Actualizando...');
+
+        try {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+
+            setPasswordStatus('success:Contraseña actualizada con éxito.');
+            setNewPassword('');
+            setTimeout(() => setPasswordStatus(''), 4000);
+        } catch (error) {
+            console.error(error);
+            setPasswordStatus('error:No se pudo actualizar la contraseña. Reintenta.');
         }
     };
 
@@ -310,71 +366,130 @@ export default function MerchantSettings() {
                         </div>
                     </div>
 
-                    {/* General Info */}
-                    <div style={{ background: 'var(--color-surface)', borderRadius: 16, padding: 24, boxShadow: 'var(--shadow-sm)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                            <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--color-primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Store size={20} color="var(--color-primary)" />
+                    {/* === IDENTIDAD VISUAL Y FREEMIUM === */}
+                    <div style={{ background: 'var(--color-surface)', borderRadius: 16, padding: 24, boxShadow: 'var(--shadow-sm)', gridColumn: '1 / -1' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--color-primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Store size={20} color="var(--color-primary)" />
+                                </div>
+                                <div>
+                                    <h3 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Identidad del Local</h3>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Nombre, descripción y diseño visual.</p>
+                                </div>
                             </div>
-                            <h3 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Información Básica</h3>
+
+                            {/* Freemium Badge */}
+                            {!isPremium && customizationAttempts >= 1 ? (
+                                <div style={{ background: '#fee2e2', color: '#b91c1c', padding: '6px 12px', borderRadius: 8, fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    🔒 Cambios Agotados (Cuenta Gratis)
+                                </div>
+                            ) : !isPremium ? (
+                                <div style={{ background: '#dbeafe', color: '#1d4ed8', padding: '6px 12px', borderRadius: 8, fontSize: '0.85rem', fontWeight: 700 }}>
+                                    Dispones de 1 modificación gratis
+                                </div>
+                            ) : (
+                                <div style={{ background: '#fef3c7', color: '#b45309', padding: '6px 12px', borderRadius: 8, fontSize: '0.85rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Star size={16} fill="currentColor" /> LOCAL PREMIUM
+                                </div>
+                            )}
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label">Nombre Comercial</label>
-                            <input className="form-input" value={form.name} onChange={(e) => update('name', e.target.value)} />
+                        {/* Lock Overlay Content */}
+                        <div style={{ opacity: (!isPremium && customizationAttempts >= 1) ? 0.6 : 1, pointerEvents: (!isPremium && customizationAttempts >= 1) ? 'none' : 'auto', transition: 'all 0.3s' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
+
+                                <div>
+                                    <div className="form-group">
+                                        <label className="form-label">Nombre Comercial</label>
+                                        <input className="form-input" value={form.name} onChange={(e) => update('name', e.target.value)} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Descripción o Eslogan</label>
+                                        <textarea className="form-input form-textarea" rows={3} value={form.description}
+                                            onChange={(e) => update('description', e.target.value)}
+                                            placeholder="La mejor pizza a la leña..." />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Color Principal de tu Marca</label>
+                                        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                            <input type="color" value={form.primaryColor} onChange={(e) => update('primaryColor', e.target.value)} style={{ width: 50, height: 40, padding: 0, border: 'none', borderRadius: 8, cursor: 'pointer' }} />
+                                            <span style={{ fontFamily: 'monospace', color: 'var(--color-text-muted)' }}>{form.primaryColor}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="form-group">
+                                        <label className="form-label">Enlace al Logo (Opcional)</label>
+                                        <input className="form-input" value={form.logoUrl} onChange={(e) => update('logoUrl', e.target.value)} placeholder="https://..." />
+                                        {form.logoUrl && <img src={form.logoUrl} alt="Logo preview" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover', marginTop: 8 }} />}
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Enlace al Banner (Fondo de tu tienda)</label>
+                                        <input className="form-input" value={form.bannerUrl} onChange={(e) => update('bannerUrl', e.target.value)} placeholder="https://..." />
+                                        {form.bannerUrl && <img src={form.bannerUrl} alt="Banner preview" style={{ width: '100%', height: 100, borderRadius: 8, objectFit: 'cover', marginTop: 8 }} />}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div className="form-group">
-                            <label className="form-label">Descripción o Eslogan</label>
-                            <textarea className="form-input form-textarea" rows={2} value={form.description}
-                                onChange={(e) => update('description', e.target.value)}
-                                placeholder="La mejor pizza a la leña..." />
+
+                        {/* Upgrade CTA */}
+                        {!isPremium && customizationAttempts >= 1 && (
+                            <div style={{ marginTop: 24, padding: 20, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, textAlign: 'center' }}>
+                                <h4 style={{ color: '#92400e', fontWeight: 800, marginBottom: 8, fontSize: '1.1rem' }}>Desbloquea la Personalización Total</h4>
+                                <p style={{ color: '#b45309', marginBottom: 16, fontSize: '0.9rem' }}>
+                                    Ya has consumido tu cambio gratuito de diseño. Si deseas actualizar tu logo, nombre, frases o colores representativos de manera ilimitada, contacta al administrador de Tlapa Comida para adquirir la insignia <strong>Premium</strong>.
+                                </p>
+                                <button className="btn btn-primary" style={{ background: '#d97706', color: 'white' }} onClick={() => alert("Comunícate por WhatsApp con tu agente de Tlapa Comida solicitando el paquete PREMIUM.")}>Contactar Soporte</button>
+                            </div>
+                        )}
+                    </div>
+                    {/* === FIN IDENTIDAD VISUAL === */}
+
+                    {/* === SEGURIDAD Y ACCESO === */}
+                    <div style={{ background: 'var(--color-surface)', borderRadius: 16, padding: 24, boxShadow: 'var(--shadow-sm)', gridColumn: '1 / -1', marginTop: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Settings size={20} color="#374151" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Seguridad de la Cuenta</h3>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Cambia tu contraseña para acceder a Tlapa Comida.</p>
+                            </div>
                         </div>
-                        <div className="form-group">
-                            <label className="form-label">Teléfono de contacto</label>
-                            <input className="form-input" type="tel" value={form.phone} onChange={(e) => update('phone', e.target.value)} />
+
+                        <div className="form-group" style={{ maxWidth: 400 }}>
+                            <label className="form-label">Nueva Contraseña</label>
+                            <div style={{ display: 'flex', gap: 12 }}>
+                                <input
+                                    className="form-input"
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    placeholder="Min. 6 caracteres"
+                                />
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleChangePassword}
+                                    disabled={passwordStatus.startsWith('loading')}
+                                >
+                                    Actualizar
+                                </button>
+                            </div>
+
+                            {passwordStatus && (
+                                <p style={{
+                                    marginTop: 8,
+                                    fontSize: '0.85rem',
+                                    fontWeight: 600,
+                                    color: passwordStatus.startsWith('error') ? 'var(--color-error)' : 'var(--color-success)'
+                                }}>
+                                    {passwordStatus.split(':')[1]}
+                                </p>
+                            )}
                         </div>
                     </div>
-
-                    {/* Address */}
-                    <div style={{ background: 'var(--color-surface)', borderRadius: 16, padding: 24, boxShadow: 'var(--shadow-sm)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <MapPin size={20} color="#2563eb" />
-                            </div>
-                            <h3 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Ubicación</h3>
-                        </div>
-
-                        <div className="form-group">
-                            <label className="form-label">Calle y número</label>
-                            <input className="form-input" value={form.addressStreet} onChange={(e) => update('addressStreet', e.target.value)} />
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Barrio / Colonia</label>
-                            <input className="form-input" value={form.addressColony} onChange={(e) => update('addressColony', e.target.value)} />
-                        </div>
-                    </div>
-
-                    {/* Images */}
-                    <div style={{ background: 'var(--color-surface)', borderRadius: 16, padding: 24, boxShadow: 'var(--shadow-sm)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f3e8ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Camera size={20} color="#9333ea" />
-                            </div>
-                            <h3 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Imágenes del Perfil</h3>
-                        </div>
-
-                        <div className="form-group">
-                            <label className="form-label">Enlace al Logo</label>
-                            <input className="form-input" value={form.logoUrl} onChange={(e) => update('logoUrl', e.target.value)} />
-                            {form.logoUrl && <img src={form.logoUrl} alt="Logo preview" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover', marginTop: 8 }} />}
-                        </div>
-                        <div className="form-group">
-                            <label className="form-label">Enlace al Banner</label>
-                            <input className="form-input" value={form.bannerUrl} onChange={(e) => update('bannerUrl', e.target.value)} />
-                            {form.bannerUrl && <img src={form.bannerUrl} alt="Banner preview" style={{ width: '100%', height: 80, borderRadius: 8, objectFit: 'cover', marginTop: 8 }} />}
-                        </div>
-                    </div>
-
                 </div>
             </main>
         </div>
