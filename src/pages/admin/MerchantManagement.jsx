@@ -88,10 +88,10 @@ export default function MerchantManagement() {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const { deliveryTime, ...restData } = form;
+            const { address, ...restData } = form;
             const merchantData = {
                 ...restData,
-                prepTime: deliveryTime // mapping deliveryTime to prepTime for Supabase schema
+                address: typeof address === 'object' ? JSON.stringify(address) : address
             };
 
             let merchantId = editingMerchant?.id;
