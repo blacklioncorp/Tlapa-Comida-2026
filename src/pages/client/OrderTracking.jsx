@@ -10,16 +10,18 @@ import SmartETADisplay from '../../components/SmartETADisplay';
 import WeatherBanner from '../../components/WeatherBanner';
 
 // FSM steps in order for the progress stepper
-const STEPS = ['created', 'confirmed', 'preparing', 'ready', 'searching_driver', 'picked_up', 'on_the_way', 'delivered'];
+const STEPS = ['created', 'confirmed', 'preparing', 'ready', 'searching_driver', 'assigned_to_driver', 'arrived_at_merchant', 'picked_up', 'on_the_way', 'delivered'];
 const STEP_LABELS = {
-    created: 'Pedido Enviado',
-    confirmed: 'Restaurante Confirmó',
-    preparing: 'En Preparación',
-    ready: 'Listo para Recoger',
+    created: 'Pedido Recibido',
+    confirmed: 'Restaurante Aceptó',
+    preparing: 'En Cocina',
+    ready: 'Empaquetado',
     searching_driver: 'Buscando Repartidor',
-    picked_up: 'Recogido',
-    on_the_way: 'En Camino',
-    delivered: 'Entregado',
+    assigned_to_driver: 'Repartidor Asignado',
+    arrived_at_merchant: 'Repartidor en el Local',
+    picked_up: 'Pedido en Camino',
+    on_the_way: 'Cerca de tu Ubicación',
+    delivered: '¡Entregado!',
 };
 const STEP_ICONS = {
     created: '📋',
@@ -27,7 +29,9 @@ const STEP_ICONS = {
     preparing: '👨‍🍳',
     ready: '📦',
     searching_driver: '🔍',
-    picked_up: '🛵',
+    assigned_to_driver: '🛵',
+    arrived_at_merchant: '📍',
+    picked_up: '📦',
     on_the_way: '🚀',
     delivered: '🎉',
 };

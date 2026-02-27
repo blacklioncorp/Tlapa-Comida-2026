@@ -145,16 +145,28 @@ export default function Checkout() {
             // ==========================================
             // CABLEADO: INTEGRACIÓN CON PASARELA DE PAGOS FUTURA
             // ==========================================
+            let paymentMetadata = { status: 'pending_cash' };
+
             if (paymentMethod !== 'cash') {
-                // TODO 1: Llamar a Edge Function de Supabase para generar Intento de Pago (ClientSecret / PreferenceId).
-                // const { data } = await supabase.functions.invoke('create-payment-intent', { body: { amount: total }});
+                // Simulación de procesamiento (Cableado listo para Stripe/MercadoPago)
+                try {
+                    // TODO: const { clientSecret } = await supabase.functions.invoke('create-payment-intent', { body: { amount: total }});
+                    // TODO: const result = await stripe.confirmPayment(...);
 
-                // TODO 2: Lanzar SDK de Stripe / MercadoPago pasándole el secreto.
-                // const result = await stripe.confirmPayment(...);
+                    // Simulamos éxito para el "cableado"
+                    paymentMetadata = {
+                        method: paymentMethod,
+                        status: 'paid', // O 'authorized'
+                        transactionId: 'sim_txn_' + Date.now(),
+                        paidAt: new Date().toISOString()
+                    };
+                } catch (paymentErr) {
+                    setSubmitError('Error al procesar el pago digital. Por favor intenta de nuevo.');
+                    setIsSubmitting(false);
+                    return;
+                }
 
-                // TODO 3: Si hay error, mostrar alerta y detener. Si es éxito, guardar el 'paymentId' para la base de datos.
-
-                // [DE MOMENTO: Bloquear el flujo si por error seleccionan tarjeta]
+                // [DE MOMENTO: Bloquear el flujo real si seleccionan tarjeta hasta que el USER lo active]
                 setSubmitError('El pago con tarjeta se habilitará muy pronto. Por favor selecciona Efectivo por el momento.');
                 setIsSubmitting(false);
                 return;
