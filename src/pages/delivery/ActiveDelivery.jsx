@@ -76,14 +76,40 @@ export default function ActiveDelivery() {
     const getActionData = () => {
         switch (order.status) {
             case 'assigned':
-            case 'searching_driver': // just in case
-                return { label: 'LLEGUÉ AL RESTAURANTE', next: 'picked_up', instruction: 'Dirígete al restaurante', dest: merchant?.name };
+            case 'assigned_to_driver':
+                return {
+                    label: 'LLEGUÉ AL LOCAL',
+                    next: 'arrived_at_merchant',
+                    instruction: 'Dirígete al restaurante',
+                    dest: merchant?.name,
+                    contact: { type: 'merchant', phone: merchant?.phone || '7570000000', label: 'Restaurante' }
+                };
+            case 'arrived_at_merchant':
+                return {
+                    label: 'CONFIRMAR RECOLECCIÓN',
+                    next: 'picked_up',
+                    instruction: 'Recoge el pedido',
+                    dest: merchant?.name,
+                    contact: { type: 'merchant', phone: merchant?.phone || '7570000000', label: 'Restaurante' }
+                };
             case 'picked_up':
-                return { label: 'COMENZAR VIAJE', next: 'on_the_way', instruction: 'Recolecta el pedido', dest: merchant?.name };
+                return {
+                    label: 'COMENZAR VIAJE',
+                    next: 'on_the_way',
+                    instruction: 'Inicia el viaje al cliente',
+                    dest: order.deliveryAddress?.street || 'Cliente',
+                    contact: { type: 'client', phone: clientPhone, label: 'Cliente' }
+                };
             case 'on_the_way':
-                return { label: 'ENTREGAR PEDIDO', next: 'delivered', instruction: 'Dirígete al cliente', dest: order.deliveryAddress?.street || 'Cliente' };
+                return {
+                    label: 'ENTREGAR PEDIDO',
+                    next: 'delivered',
+                    instruction: 'Dirígete al cliente',
+                    dest: order.deliveryAddress?.street || 'Cliente',
+                    contact: { type: 'client', phone: clientPhone, label: 'Cliente' }
+                };
             default:
-                return { label: 'ENTREGADO', next: null, instruction: 'Pedido completado', dest: '' };
+                return { label: 'ENTREGADO', next: null, instruction: 'Pedido completado', dest: '', contact: null };
         }
     };
     const actionData = getActionData();
@@ -189,17 +215,28 @@ export default function ActiveDelivery() {
                     </div>
 
                     <div style={{ display: 'flex', gap: 8 }}>
-                        <a href={clientPhone ? `tel:+52${clientPhone}` : '#'} style={{ width: 40, height: 40, borderRadius: '50%', background: '#27272a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                            <Phone size={18} />
-                        </a>
-                        <a href={`https://wa.me/52${clientPhone}`} target="_blank" rel="noopener noreferrer" style={{ width: 40, height: 40, borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                            <MessageCircle size={18} />
-                        </a>
+                        {actionData.contact && (
+                            <>
+                                <a href={`tel:${actionData.contact.phone}`} title={`Llamar ${actionData.contact.label}`} style={{ width: 40, height: 40, borderRadius: '50%', background: '#27272a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                    <Phone size={18} />
+                                </a>
+                                <a href={`https://wa.me/${actionData.contact.phone.includes('+') ? actionData.contact.phone : '+52' + actionData.contact.phone}`} target="_blank" rel="noopener noreferrer" title={`WhatsApp ${actionData.contact.label}`} style={{ width: 40, height: 40, borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                    <MessageCircle size={18} />
+                                </a>
+                            </>
+                        )}
                     </div>
                 </div>
 
                 {/* Info Note (References or Modifiers if important) */}
-                {order.deliveryAddress?.reference && actionData.next === 'delivered' && (
+                {order.status === 'arrived_at_merchant' && !order.timestamps?.readyAt && (
+                    <div style={{ background: '#1e1b4b', border: '1px solid #3730a3', borderRadius: 12, padding: 12, marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center', animation: 'pulse 2s infinite' }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#818cf8' }} />
+                        <p style={{ fontSize: '0.85rem', color: '#c7d2fe', margin: 0, fontWeight: 600 }}>Esperando a que el restaurante prepare el pedido...</p>
+                    </div>
+                )}
+
+                {order.deliveryAddress?.reference && (order.status === 'picked_up' || order.status === 'on_the_way') && (
                     <div style={{ background: '#27272a', borderRadius: 12, padding: 12, marginBottom: 20, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                         <MapPin size={20} color="#fbbf24" style={{ flexShrink: 0 }} />
                         <p style={{ fontSize: '0.85rem', color: '#e4e4e7', margin: 0, lineHeight: 1.4 }}>{order.deliveryAddress.reference}</p>
