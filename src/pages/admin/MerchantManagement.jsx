@@ -109,8 +109,7 @@ export default function MerchantManagement() {
                 if (merchantData.ownerEmail) {
                     await supabase.from('users')
                         .update({ role: 'merchant', merchantId: merchantId })
-                        .eq('email', merchantData.ownerEmail.toLowerCase().trim())
-                        .catch(err => console.warn('User role sync failed:', err));
+                        .eq('email', merchantData.ownerEmail.toLowerCase().trim());
                 }
             } else {
                 const { error: merchantError } = await supabase.from('merchants').update({
@@ -123,8 +122,7 @@ export default function MerchantManagement() {
                 if (merchantData.ownerEmail) {
                     await supabase.from('users')
                         .update({ role: 'merchant', merchantId: merchantId })
-                        .eq('email', merchantData.ownerEmail.toLowerCase().trim())
-                        .catch(err => console.warn('User role sync failed:', err));
+                        .eq('email', merchantData.ownerEmail.toLowerCase().trim());
                 }
             }
 
