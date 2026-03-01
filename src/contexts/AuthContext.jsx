@@ -43,6 +43,27 @@ export function AuthProvider({ children }) {
                 .single();
 
             if (userDoc && !error) {
+                // AUTO-SYNC: Upgrade to merchant if ownerEmail matches
+                if (userDoc.role === 'client' || !userDoc.merchantId) {
+                    try {
+                        const { data: merchantData } = await supabase
+                            .from('merchants')
+                            .select('id')
+                            .eq('ownerEmail', fbUser.email)
+                            .single();
+
+                        if (merchantData && merchantData.id) {
+                            userDoc.role = 'merchant';
+                            userDoc.merchantId = merchantData.id;
+                            // Persist upgrade to DB
+                            supabase.from('users')
+                                .update({ role: 'merchant', merchantId: merchantData.id })
+                                .eq('id', fbUser.id)
+                                .catch(err => console.warn('Role sync update failed:', err));
+                        }
+                    } catch (e) { /* ignore single error */ }
+                }
+
                 // Dev Hack: Force driver role for the test driver account
                 if (userDoc.email === 'repartidor@ejemplo.com' && userDoc.role !== 'driver') {
                     userDoc.role = 'driver';

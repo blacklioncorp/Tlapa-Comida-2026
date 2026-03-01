@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X, Trash2, Save } from 'lucide-react';
 import { supabase } from '../supabase';
 import ImageUpload from './ImageUpload';

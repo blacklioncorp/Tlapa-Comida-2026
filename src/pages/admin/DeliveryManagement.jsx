@@ -5,7 +5,7 @@ import { useOrders } from '../../contexts/OrderContext';
 import { supabase } from '../../supabase';
 import { ALL_USERS } from '../../data/seedData';
 import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Truck, DollarSign, LayoutGrid, Gift, User, CheckCircle, Navigation } from 'lucide-react';
-import DriverLocationMap from '../../components/DriverLocationMap';
+import AdminLiveMap from '../../components/AdminLiveMap';
 
 export default function DeliveryManagement() {
     const { logout } = useAuth();
@@ -15,47 +15,33 @@ export default function DeliveryManagement() {
     const [drivers, setDrivers] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Initial load
+    // Initial load and Realtime sync
     useEffect(() => {
+        let subscription = null;
+
         const fetchDrivers = async () => {
-            // Here we should fetch real drivers from Supabase users table where role='driver'
-            // For now, combining Seed Data with actual DB
-            const { data, error } = await supabase.from('users').select('*').eq('role', 'driver');
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('role', 'driver');
 
-            let allConfiguredDrivers = data || [];
-            if (allConfiguredDrivers.length === 0) {
-                allConfiguredDrivers = ALL_USERS.filter(u => u.role === 'driver');
+            if (!error && data) {
+                setDrivers(data);
             }
-
-            // Sync with local storage locations (in a real app this would be a Supabase Realtime channel)
-            let cachedLocations = {};
-            try {
-                cachedLocations = JSON.parse(localStorage.getItem('tlapa_driver_locations') || '{}');
-            } catch { }
-
-            const enriched = allConfiguredDrivers.map(d => ({
-                ...d,
-                location: cachedLocations[d.id] || d.currentLocation || { lat: 17.545, lng: -98.572 },
-                isOnline: !!cachedLocations[d.id] // Rough proxy for online status
-            }));
-
-            setDrivers(enriched);
             setLoading(false);
         };
+
         fetchDrivers();
 
-        // Listen for localStorage changes (hacky way to listen for other tabs updating GPS)
-        const handleStorage = (e) => {
-            if (e.key === 'tlapa_driver_locations') {
+        // Realtime updates for online status and location
+        subscription = supabase.channel('admin:drivers-sync')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: 'role=eq.driver' }, () => {
                 fetchDrivers();
-            }
-        };
-        window.addEventListener('storage', handleStorage);
-        const interval = setInterval(fetchDrivers, 5000); // Polling as fallback for same-tab updates
+            })
+            .subscribe();
 
         return () => {
-            window.removeEventListener('storage', handleStorage);
-            clearInterval(interval);
+            if (subscription) supabase.removeChannel(subscription);
         };
     }, []);
 
@@ -174,9 +160,8 @@ export default function DeliveryManagement() {
                     <h2 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Navigation size={18} color="var(--color-primary)" /> Mapa en Vivo
                     </h2>
-                    <div style={{ width: '100%', height: 350, borderRadius: 12, overflow: 'hidden', background: '#f1f5f9', border: '1px solid var(--color-border-light)' }}>
-                        {/* We reuse DriverLocationMap but technically an AdminMap mapping MULTIPLE drivers would be better. For now we center on Tlapa. */}
-                        <DriverLocationMap driverLocation={{ lat: 17.545, lng: -98.572 }} height="100%" />
+                    <div style={{ width: '100%', height: 350, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--color-border-light)' }}>
+                        <AdminLiveMap height="100%" />
                     </div>
                 </div>
 

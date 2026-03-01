@@ -18,13 +18,19 @@ export default function AvailableOrders() {
     // Radar logic for incoming orders
     const [radarOrders, setRadarOrders] = useState([]);
 
-    const [isOnline, setIsOnline] = useState(() => {
-        try {
-            const saved = localStorage.getItem('tlapa_driver_online_' + user?.id);
-            return saved !== null ? JSON.parse(saved) : true;
-        } catch { return true; }
-    });
+    const [isOnline, setIsOnline] = useState(user?.isOnline ?? true);
 
+    const toggleOnline = async () => {
+        const newVal = !isOnline;
+        setIsOnline(newVal);
+        try {
+            await supabase.from('users').update({ isOnline: newVal }).eq('id', user.id);
+        } catch (e) {
+            console.error("Error updating online status:", e);
+        }
+    };
+
+    const myActiveOrder = orders.find(o => o.driverId === user.id && !['delivered', 'cancelled'].includes(o.status));
     useEffect(() => {
         if (!user || user.isBlockedDueToCash) return;
 
@@ -55,7 +61,6 @@ export default function AvailableOrders() {
 
         const subscription = supabase.channel(`public:orders:radar:${user.id}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
-                // Either new searching_driver, or an order got accepted by someone else and changed status
                 fetchIncoming();
             })
             .subscribe((status, err) => {
@@ -67,28 +72,36 @@ export default function AvailableOrders() {
         };
     }, [user, isOnline]);
 
-    const toggleOnline = () => {
-        const newVal = !isOnline;
-        setIsOnline(newVal);
-        localStorage.setItem('tlapa_driver_online_' + user.id, JSON.stringify(newVal));
-    };
-
-    const myActiveOrder = orders.find(o => o.driverId === user.id && !['delivered', 'cancelled'].includes(o.status));
     const todayEarnings = orders
         .filter(o => o.driverId === user.id && o.status === 'delivered')
         .reduce((sum, o) => sum + (o.totals.deliveryFee || 0), 0);
     const todayDeliveries = orders.filter(o => o.driverId === user.id && o.status === 'delivered').length;
 
-    let initialLocation = user.currentLocation;
-    try {
-        const saved = localStorage.getItem('tlapa_driver_locations');
-        if (saved) {
-            const locs = JSON.parse(saved);
-            if (locs[user.id]) initialLocation = locs[user.id];
-        }
-    } catch { }
+    const [liveLocation, setLiveLocation] = useState(user.currentLocation || TLAPA_CENTER);
 
-    const [liveLocation, setLiveLocation] = useState(initialLocation);
+    // PERIODIC GPS SYNC (Every 15-30 seconds if online)
+    useEffect(() => {
+        if (!isOnline || !user) return;
+
+        const updateLocation = () => {
+            if (!navigator.geolocation) return;
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
+                    setLiveLocation(pos);
+                    // Sync to DB
+                    await supabase.from('users').update({ currentLocation: pos }).eq('id', user.id);
+                },
+                null,
+                { enableHighAccuracy: true }
+            );
+        };
+
+        updateLocation(); // Immediate
+        const interval = setInterval(updateLocation, 25000); // Periodic
+
+        return () => clearInterval(interval);
+    }, [isOnline, user?.id]);
 
     const requestGps = () => {
         if (!navigator.geolocation) {
@@ -97,25 +110,20 @@ export default function AvailableOrders() {
         }
 
         navigator.geolocation.getCurrentPosition(
-            (position) => {
+            async (position) => {
                 const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
                 setLiveLocation(pos);
-                // Opcionalmente guardar localmente
-                try {
-                    const locs = JSON.parse(localStorage.getItem('tlapa_driver_locations') || '{}');
-                    locs[user.id] = pos;
-                    localStorage.setItem('tlapa_driver_locations', JSON.stringify(locs));
-                } catch { }
+                // Sync to DB immediately manual
+                await supabase.from('users').update({ currentLocation: pos }).eq('id', user.id);
             },
             (error) => {
                 let msg = 'Error desconocido obteniendo ubicación.';
-                if (error.code === 1) msg = 'Permiso de ubicación denegado. Por favor, habilítalo en la configuración de la app o navegador.';
-                if (error.code === 2) msg = 'Ubicación no disponible en este momento.';
-                if (error.code === 3) msg = 'Tiempo de espera agotado al buscar ubicación.';
+                if (error.code === 1) msg = 'Permiso de ubicación denegado.';
+                if (error.code === 2) msg = 'Ubicación no disponible.';
+                if (error.code === 3) msg = 'Tiempo de espera agotado.';
                 alert(msg);
-                console.warn('GPS Error:', error);
             },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            { enableHighAccuracy: true }
         );
     };
 
