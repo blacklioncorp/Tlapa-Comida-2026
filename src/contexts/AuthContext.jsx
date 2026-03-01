@@ -43,27 +43,6 @@ export function AuthProvider({ children }) {
                 .single();
 
             if (userDoc && !error) {
-                // AUTO-SYNC: Upgrade to merchant if ownerEmail matches
-                if (userDoc.role === 'client' || !userDoc.merchantId) {
-                    try {
-                        const { data: merchantData } = await supabase
-                            .from('merchants')
-                            .select('id')
-                            .eq('ownerEmail', fbUser.email)
-                            .single();
-
-                        if (merchantData && merchantData.id) {
-                            userDoc.role = 'merchant';
-                            userDoc.merchantId = merchantData.id;
-                            // Persist upgrade to DB
-                            supabase.from('users')
-                                .update({ role: 'merchant', merchantId: merchantData.id })
-                                .eq('id', fbUser.id)
-                                .catch(err => console.warn('Role sync update failed:', err));
-                        }
-                    } catch (e) { /* ignore single error */ }
-                }
-
                 // Dev Hack: Force driver role for the test driver account
                 if (userDoc.email === 'repartidor@ejemplo.com' && userDoc.role !== 'driver') {
                     userDoc.role = 'driver';
@@ -80,22 +59,6 @@ export function AuthProvider({ children }) {
 
         // No DB doc found — try to save one (non-blocking)
         try {
-            // Check if user is pre-authorized as a merchant
-            try {
-                const { data: merchantData } = await supabase
-                    .from('merchants')
-                    .select('id')
-                    .eq('ownerEmail', fbUser.email)
-                    .single();
-
-                if (merchantData) {
-                    fallbackUser.role = 'merchant';
-                    fallbackUser.merchantId = merchantData.id;
-                }
-            } catch (e) {
-                console.warn('Checks for merchant pre-authorization failed:', e.message);
-            }
-
             await supabase.from('users').insert([{ ...fallbackUser, id: fbUser.id }]);
         } catch (e) {
             console.warn('Supabase DB write skipped:', e.message);
@@ -232,24 +195,9 @@ export function AuthProvider({ children }) {
             if (error) throw error;
             const sbUser = data.user;
 
-            // Check if user is pre-authorized as a merchant owner
+            // The DB trigger will handle role/merchantId sync automatically
             let finalRole = role || 'client';
             let finalMerchantId = null;
-
-            try {
-                const { data: merchantData } = await supabase
-                    .from('merchants')
-                    .select('id')
-                    .eq('ownerEmail', email)
-                    .single();
-
-                if (merchantData && merchantData.id) {
-                    finalRole = 'merchant';
-                    finalMerchantId = merchantData.id;
-                }
-            } catch (e) {
-                console.warn('Pre-auth merchant check failed', e.message);
-            }
 
             const newUserData = {
                 id: sbUser.id,

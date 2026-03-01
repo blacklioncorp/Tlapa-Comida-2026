@@ -98,18 +98,34 @@ export default function MerchantManagement() {
 
             if (!merchantId) {
                 merchantId = `merchant-${Date.now()}`;
-                const { error } = await supabase.from('merchants').insert([{
+                const { error: merchantError } = await supabase.from('merchants').insert([{
                     id: merchantId,
                     ...merchantData,
                     createdAt: new Date().toISOString()
                 }]);
-                if (error) throw error;
+                if (merchantError) throw merchantError;
+
+                // Immediate role sync for the owner user
+                if (merchantData.ownerEmail) {
+                    await supabase.from('users')
+                        .update({ role: 'merchant', merchantId: merchantId })
+                        .eq('email', merchantData.ownerEmail.toLowerCase().trim())
+                        .catch(err => console.warn('User role sync failed:', err));
+                }
             } else {
-                const { error } = await supabase.from('merchants').update({
+                const { error: merchantError } = await supabase.from('merchants').update({
                     ...merchantData,
                     updatedAt: new Date().toISOString()
                 }).eq('id', merchantId);
-                if (error) throw error;
+                if (merchantError) throw merchantError;
+
+                // Sync role if email changed or to ensure consistency
+                if (merchantData.ownerEmail) {
+                    await supabase.from('users')
+                        .update({ role: 'merchant', merchantId: merchantId })
+                        .eq('email', merchantData.ownerEmail.toLowerCase().trim())
+                        .catch(err => console.warn('User role sync failed:', err));
+                }
             }
 
             setIsModalOpen(false);
