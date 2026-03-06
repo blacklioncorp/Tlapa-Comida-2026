@@ -134,8 +134,12 @@ export default function UserManagement() {
     const handleSaveDriver = async (e) => {
         e.preventDefault();
         try {
+            // Generate a valid UUID for the placeholder record
+            // This will be replaced by the real Auth UUID when the user signs up
+            const tempId = self.crypto?.randomUUID() || '00000000-0000-4000-8000-' + Date.now().toString(16).padStart(12, '0');
+
             const newDriver = {
-                id: `driver-${Date.now()}`,
+                id: tempId.slice(0, 36), // Ensure it matches UUID length if using fallback
                 displayName: driverForm.name,
                 email: driverForm.email,
                 phone: driverForm.phone,

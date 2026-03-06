@@ -31,7 +31,7 @@ const WEATHER_CONDITIONS = {
         label: 'Despejado',
         icon: '☀️',
         delayMultiplier: 1.0,
-        deliverySurcharge: 0,
+        priceMultiplier: 1.0,
         message: null,
     },
     cloudy: {
@@ -39,7 +39,7 @@ const WEATHER_CONDITIONS = {
         label: 'Nublado',
         icon: '⛅',
         delayMultiplier: 1.0,
-        deliverySurcharge: 0,
+        priceMultiplier: 1.0,
         message: null,
     },
     fog: {
@@ -47,7 +47,7 @@ const WEATHER_CONDITIONS = {
         label: 'Neblina',
         icon: '🌫️',
         delayMultiplier: 1.15,
-        deliverySurcharge: 5,
+        priceMultiplier: 1.15,
         message: 'Hay neblina — los tiempos de entrega pueden ser un poco más largos',
     },
     drizzle: {
@@ -55,7 +55,7 @@ const WEATHER_CONDITIONS = {
         label: 'Llovizna',
         icon: '🌦️',
         delayMultiplier: 1.2,
-        deliverySurcharge: 5,
+        priceMultiplier: 1.2,
         message: 'Llovizna ligera — tu pedido puede tardar un poco más',
     },
     rain: {
@@ -63,7 +63,7 @@ const WEATHER_CONDITIONS = {
         label: 'Lluvia',
         icon: '🌧️',
         delayMultiplier: 1.35,
-        deliverySurcharge: 10,
+        priceMultiplier: 1.35,
         message: 'Está lloviendo — los tiempos de entrega serán más largos de lo normal',
     },
     heavy_rain: {
@@ -71,7 +71,7 @@ const WEATHER_CONDITIONS = {
         label: 'Lluvia fuerte',
         icon: '⛈️',
         delayMultiplier: 1.5,
-        deliverySurcharge: 15,
+        priceMultiplier: 1.5,
         message: '¡Lluvia intensa! Los repartidores están tomando precauciones extra',
     },
     storm: {
@@ -79,7 +79,7 @@ const WEATHER_CONDITIONS = {
         label: 'Tormenta',
         icon: '🌩️',
         delayMultiplier: 1.7,
-        deliverySurcharge: 20,
+        priceMultiplier: 1.8,
         message: '⚠️ Tormenta eléctrica — entregas pueden retrasarse significativamente',
     },
 };

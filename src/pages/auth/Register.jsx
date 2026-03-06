@@ -11,6 +11,7 @@ export default function Register() {
     });
     const [error, setError] = useState('');
     const [agreed, setAgreed] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -19,11 +20,13 @@ export default function Register() {
         if (form.password !== form.confirmPassword) { setError('Las contraseñas no coinciden'); return; }
         if (form.password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return; }
 
+        setIsLoading(true);
         const result = await register(form);
         if (result.success) {
             navigate('/');
         } else {
             setError(result.error);
+            setIsLoading(false);
         }
     };
 
@@ -84,8 +87,8 @@ export default function Register() {
                     </span>
                 </label>
 
-                <button type="submit" className="btn btn-primary btn-block btn-lg">
-                    Registrarse
+                <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={isLoading}>
+                    {isLoading ? 'Registrando...' : 'Registrarse'}
                 </button>
 
                 <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>

@@ -7,7 +7,8 @@ import { useSmartDelivery } from '../../contexts/SmartDeliveryContext';
 import { usePromotions } from '../../contexts/PromotionContext';
 import { supabase } from '../../supabase';
 import { adjustedDeliveryFee } from '../../services/WeatherService';
-import { ArrowLeft, Minus, Plus, Trash2, MapPin, CreditCard, Banknote, Tag, AlertTriangle, WifiOff, Edit3 } from 'lucide-react';
+import { calculateDynamicPricing } from '../../services/PricingService';
+import { ArrowLeft, Minus, Plus, Trash2, MapPin, CreditCard, Banknote, Tag, AlertTriangle, WifiOff, Edit3, Info } from 'lucide-react';
 import WeatherBanner from '../../components/WeatherBanner';
 import SmartETADisplay from '../../components/SmartETADisplay';
 import MerchantLoadBadge from '../../components/MerchantLoadBadge';
@@ -30,6 +31,16 @@ export default function Checkout() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [submitError, setSubmitError] = useState('');
+
+    // Dynamic Pricing state
+    const [pricingDetails, setPricingDetails] = useState({
+        baseFee: 20,
+        finalFee: 20,
+        totalMultiplier: 1.0,
+        factors: [],
+        isDynamic: false
+    });
+    const [loadingPricing, setLoadingPricing] = useState(false);
 
     // Address state
     const defaultAddr = user?.savedAddresses?.[0] || { street: '', colony: '', reference: '' };
@@ -69,9 +80,29 @@ export default function Checkout() {
         fetchMerchant();
     }, [merchantId]);
 
-    const baseDeliveryFee = merchant?.deliveryFee || 20;
-    const deliveryFee = isRaining ? adjustedDeliveryFee(baseDeliveryFee, weather?.condition) : baseDeliveryFee;
-    const weatherSurcharge = deliveryFee - baseDeliveryFee;
+    // Calculate Dynamic Pricing
+    useEffect(() => {
+        const fetchPricing = async () => {
+            if (!merchant || !deliveryAddress?.location) return;
+            setLoadingPricing(true);
+            try {
+                const result = await calculateDynamicPricing({
+                    origin: merchant.location,
+                    destination: deliveryAddress.location,
+                    merchantId
+                });
+                setPricingDetails(result);
+            } catch (err) {
+                console.error("[Checkout] Failed to calculate dynamic pricing:", err);
+            } finally {
+                setLoadingPricing(false);
+            }
+        };
+        fetchPricing();
+    }, [merchant, deliveryAddress, weather]);
+
+    const deliveryFee = pricingDetails.finalFee;
+    const weatherSurcharge = deliveryFee - pricingDetails.baseFee;
     const serviceFee = Math.round(subtotal * 0.05);
     const total = subtotal + deliveryFee + serviceFee - discount;
 
@@ -447,11 +478,11 @@ export default function Checkout() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.875rem' }}>
                         <span style={{ color: 'var(--color-text-secondary)' }}>Envío</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            {weatherSurcharge > 0 && (
-                                <span style={{ fontSize: '0.7rem', color: '#1e40af', background: '#dbeafe', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>
-                                    {weather?.condition?.icon} +${weatherSurcharge}
+                            {pricingDetails.factors.map((factor, idx) => (
+                                <span key={idx} title={factor.label} style={{ fontSize: '0.7rem', color: '#1e40af', background: '#dbeafe', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>
+                                    {factor.multiplier}x
                                 </span>
-                            )}
+                            ))}
                             <span style={{ fontWeight: 600 }}>${deliveryFee.toFixed(2)}</span>
                         </div>
                     </div>

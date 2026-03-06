@@ -23,6 +23,7 @@ import {
     calculateDynamicETA,
     sortOrdersByPriority,
 } from '../services/SmartOrderManager';
+import { calculateDynamicPricing } from '../services/PricingService';
 import { useOrders } from './OrderContext';
 
 const SmartDeliveryContext = createContext(null);
@@ -69,7 +70,6 @@ export function SmartDeliveryProvider({ children }) {
     const getDriverRanking = useCallback((merchantId) => {
         return rankDriversByProximity(merchantId, orders);
     }, [orders]);
-
     // ── Helper: get dynamic ETA ──
     const getDynamicETA = useCallback((merchantId, deliveryAddress) => {
         return calculateDynamicETA({
@@ -79,6 +79,14 @@ export function SmartDeliveryProvider({ children }) {
             weatherCondition: weather?.condition || null,
         });
     }, [orders, weather]);
+
+    // ── Helper: get dynamic pricing ──
+    const getDynamicPricing = useCallback(async (params) => {
+        return calculateDynamicPricing({
+            weatherCondition: weather?.condition || null,
+            ...params
+        });
+    }, [weather]);
 
     // ── Helper: get priority-sorted available orders for drivers ──
     const getPrioritizedOrders = useCallback(() => {
@@ -113,6 +121,9 @@ export function SmartDeliveryProvider({ children }) {
 
             // ETA
             getDynamicETA,
+
+            // Pricing
+            getDynamicPricing,
 
             // Order priority
             getPrioritizedOrders,
