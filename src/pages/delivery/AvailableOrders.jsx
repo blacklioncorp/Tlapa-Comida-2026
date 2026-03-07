@@ -336,15 +336,11 @@ export default function AvailableOrders() {
                     <MapPin size={22} style={{ marginBottom: 4 }} />
                     MAPA
                 </button>
-                <button className="bottom-nav-item" onClick={() => navigate('/delivery/history')}>
-                    <History size={22} style={{ marginBottom: 4 }} />
-                    HISTORIAL
-                </button>
                 <button className="bottom-nav-item" onClick={() => navigate('/delivery/wallet')}>
                     <Wallet size={22} style={{ marginBottom: 4 }} />
-                    CARTERA
+                    FINANZAS
                 </button>
-                <button className="bottom-nav-item" onClick={() => navigate('/profile')}>
+                <button className="bottom-nav-item" onClick={() => navigate('/delivery/profile')}>
                     <User size={22} style={{ marginBottom: 4 }} />
                     PERFIL
                 </button>

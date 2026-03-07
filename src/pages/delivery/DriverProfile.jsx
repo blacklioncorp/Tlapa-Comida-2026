@@ -65,23 +65,7 @@ export default function DriverProfile() {
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '24px 16px 100px' }}>
-                {/* Stats Row */}
-                <div style={{ display: 'flex', gap: 12, marginBottom: 32 }}>
-                    <div style={{ flex: 1, background: 'white', borderRadius: 20, padding: 16, border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 10, background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                            <Star size={18} color="#f59e0b" />
-                        </div>
-                        <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>{acceptanceRate}%</h3>
-                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Tasa de aceptación</p>
-                    </div>
-                    <div style={{ flex: 1, background: 'white', borderRadius: 20, padding: 16, border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 10, background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                            <MapPin size={18} color="#10b981" />
-                        </div>
-                        <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0f172a' }}>{totalDeliveries}</h3>
-                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Viajes completados</p>
-                    </div>
-                </div>
+                {/* Removed redundant stats row */}
 
                 {/* Settings Menu */}
                 <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', margin: '0 0 16px 8px' }}>Configuración</h3>
@@ -149,13 +133,9 @@ export default function DriverProfile() {
                     <MapPin size={22} style={{ marginBottom: 4 }} />
                     MAPA
                 </button>
-                <button className="bottom-nav-item">
-                    <Clock size={22} style={{ marginBottom: 4 }} />
-                    HISTORIAL
-                </button>
                 <button className="bottom-nav-item" onClick={() => navigate('/delivery/wallet')}>
                     <WalletIcon size={22} style={{ marginBottom: 4 }} />
-                    CARTERA
+                    FINANZAS
                 </button>
                 <button className="bottom-nav-item active">
                     <User size={22} style={{ marginBottom: 4 }} />
