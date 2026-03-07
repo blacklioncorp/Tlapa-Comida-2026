@@ -178,22 +178,14 @@ export default function AvailableOrders() {
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <button onClick={logout} style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            width: 36, height: 36, borderRadius: '50%', border: 'none',
-                            background: 'white', color: '#ef4444',
-                            cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                        }} title="Cerrar sesión">
-                            <Power size={18} />
-                        </button>
                         <button onClick={toggleOnline} style={{
                             display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '6px 12px', borderRadius: 20, border: 'none',
+                            padding: '8px 16px', borderRadius: 24, border: 'none',
                             background: isOnline ? '#10b981' : '#ef4444', color: 'white',
-                            fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                            fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                         }}>
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'white' }} />
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'white' }} />
                             {isOnline ? 'EN LÍNEA' : 'OFFLINE'}
                         </button>
                     </div>
