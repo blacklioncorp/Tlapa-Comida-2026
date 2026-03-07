@@ -43,18 +43,6 @@ export default function OrderTracking() {
     const { orders, cancelOrder } = useOrders();
     const order = orders.find(o => o.id === orderId);
     const [cancelling, setCancelling] = useState(false);
-
-    if (!order) {
-        return (
-            <div className="app-container">
-                <div className="loading-page">
-                    <div className="spinner" />
-                    <p>Cargando pedido...</p>
-                </div>
-            </div>
-        );
-    }
-
     const [merchant, setMerchant] = useState(null);
     const [driver, setDriver] = useState(null);
 
@@ -67,6 +55,17 @@ export default function OrderTracking() {
             supabase.from('users').select('*').eq('id', order.driverId).single().then(({ data }) => setDriver(data));
         }
     }, [order?.merchantId, order?.driverId]);
+
+    if (!order) {
+        return (
+            <div className="app-container">
+                <div className="loading-page">
+                    <div className="spinner" />
+                    <p>Cargando pedido...</p>
+                </div>
+            </div>
+        );
+    }
 
     const isCancelled = order.status === 'cancelled';
     const isDelivered = order.status === 'delivered';
