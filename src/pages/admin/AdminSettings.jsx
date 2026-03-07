@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Save, Bell, Globe, DollarSign, Shield, Palette, Plus, X, Tag, LayoutGrid, Gift , Truck } from 'lucide-react';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Save, Bell, Globe, DollarSign, Shield, Palette, Plus, X, Tag, LayoutGrid, Gift, Truck } from 'lucide-react';
 
 export default function AdminSettings() {
     const { logout } = useAuth();
@@ -20,8 +20,8 @@ export default function AdminSettings() {
     });
 
     const [settings, setSettings] = useState({
-        platformName: 'Tlapa Comida',
-        supportEmail: 'soporte@tlapacomida.com',
+        platformName: 'Tlapa Food',
+        supportEmail: 'soporte@tlapafood.com',
         supportPhone: '+52 757 123 4567',
         defaultCommission: 15,
         deliveryBaseFee: 20,
@@ -106,7 +106,7 @@ export default function AdminSettings() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
                     <div>
                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Ajustes de la Plataforma</h1>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Configura los parámetros generales de Tlapa Comida</p>
+                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Configura los parámetros generales de Tlapa Food</p>
                     </div>
                     <button className="btn btn-primary" onClick={handleSave}>
                         <Save size={16} /> Guardar Cambios

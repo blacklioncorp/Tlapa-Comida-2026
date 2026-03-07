@@ -439,9 +439,9 @@ export default function MerchantSettings() {
                             <div style={{ marginTop: 24, padding: 20, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, textAlign: 'center' }}>
                                 <h4 style={{ color: '#92400e', fontWeight: 800, marginBottom: 8, fontSize: '1.1rem' }}>Desbloquea la Personalización Total</h4>
                                 <p style={{ color: '#b45309', marginBottom: 16, fontSize: '0.9rem' }}>
-                                    Ya has consumido tu cambio gratuito de diseño. Si deseas actualizar tu logo, nombre, frases o colores representativos de manera ilimitada, contacta al administrador de Tlapa Comida para adquirir la insignia <strong>Premium</strong>.
+                                    Ya has consumido tu cambio gratuito de diseño. Si deseas actualizar tu logo, nombre, frases o colores representativos de manera ilimitada, contacta al administrador de Tlapa Food para adquirir la insignia <strong>Premium</strong>.
                                 </p>
-                                <button className="btn btn-primary" style={{ background: '#d97706', color: 'white' }} onClick={() => alert("Comunícate por WhatsApp con tu agente de Tlapa Comida solicitando el paquete PREMIUM.")}>Contactar Soporte</button>
+                                <button className="btn btn-primary" style={{ background: '#d97706', color: 'white' }} onClick={() => alert("Comunícate por WhatsApp con tu agente de Tlapa Food solicitando el paquete PREMIUM.")}>Contactar Soporte</button>
                             </div>
                         )}
                     </div>
@@ -455,7 +455,7 @@ export default function MerchantSettings() {
                             </div>
                             <div>
                                 <h3 style={{ fontWeight: 700, fontSize: '1.1rem' }}>Seguridad de la Cuenta</h3>
-                                <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Cambia tu contraseña para acceder a Tlapa Comida.</p>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Cambia tu contraseña para acceder a Tlapa Food.</p>
                             </div>
                         </div>
 
