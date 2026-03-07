@@ -72,9 +72,10 @@ function AppRoutes() {
       {/* Client Routes */}
       <Route path="/" element={
         <ProtectedRoute allowedRoles={['client', 'merchant', 'driver', 'admin']}>
-          {user?.role === 'merchant' ? <Navigate to="/merchant" replace /> :
-            user?.role === 'driver' ? <Navigate to="/delivery" replace /> :
-              <ClientHome />}
+          {user?.role === 'admin' ? <Navigate to="/admin" replace /> :
+            user?.role === 'merchant' ? <Navigate to="/merchant" replace /> :
+              user?.role === 'driver' ? <Navigate to="/delivery" replace /> :
+                <ClientHome />}
         </ProtectedRoute>
       } />
       <Route path="/restaurant/:id" element={<ProtectedRoute allowedRoles={['client']}><RestaurantDetail /></ProtectedRoute>} />

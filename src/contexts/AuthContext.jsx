@@ -17,19 +17,20 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Build basic user data from Firebase Auth user object
-    const buildBasicUser = useCallback((fbUser) => {
-        const legacy = ALL_USERS.find(u => u.email === fbUser.email);
+    // Build basic user data from Supabase Auth user object
+    const buildBasicUser = useCallback((sbUser) => {
+        const legacy = ALL_USERS.find(u => u.email === sbUser.email);
+        const metadata = sbUser.user_metadata || {};
         return {
-            id: fbUser.uid,
-            email: fbUser.email,
-            displayName: fbUser.displayName || legacy?.displayName || 'Usuario',
-            role: fbUser.email === 'repartidor@ejemplo.com' ? 'driver' : (legacy?.role || 'client'),
-            avatarUrl: fbUser.photoURL || '',
+            id: sbUser.id,
+            email: sbUser.email,
+            displayName: metadata.displayName || legacy?.displayName || 'Usuario',
+            role: metadata.role || (sbUser.email === 'repartidor@ejemplo.com' ? 'driver' : (legacy?.role || 'client')),
+            avatarUrl: metadata.avatarUrl || '',
             savedAddresses: legacy?.savedAddresses || [],
-            phone: fbUser.phoneNumber || legacy?.phone || '',
+            phone: sbUser.phone || legacy?.phone || '',
             isActive: true,
-            merchantId: legacy?.merchantId || null,
+            merchantId: metadata.merchantId || legacy?.merchantId || null,
         };
     }, []);
 

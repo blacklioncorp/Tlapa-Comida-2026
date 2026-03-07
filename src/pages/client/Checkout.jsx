@@ -155,7 +155,7 @@ export default function Checkout() {
             }
 
             const orderPayload = {
-                clientId: user?.id || user?.uid,
+                clientId: user?.id,
                 merchantId,
                 items,
                 deliveryAddress,
@@ -214,7 +214,7 @@ export default function Checkout() {
         } catch (err) {
             console.error('🔥 ERROR CRÍTICO AL CREAR PEDIDO:', err);
             if (err.code) {
-                console.error('➡️ Código de error de Firebase:', err.code);
+                console.error('➡️ Código de error de Supabase:', err.code);
             }
             if (err.message) {
                 console.error('➡️ Mensaje de error:', err.message);

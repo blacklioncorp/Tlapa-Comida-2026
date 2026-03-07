@@ -255,7 +255,18 @@ export default function MerchantManagement() {
                                                 />
                                                 <div>
                                                     <div style={{ fontWeight: 700 }}>{merchant.name}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{typeof merchant.address === 'object' ? merchant.address?.street || 'Sin dirección' : merchant.address}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                                        {(() => {
+                                                            if (!merchant.address) return 'Sin dirección';
+                                                            if (typeof merchant.address === 'object') return merchant.address.street || 'Sin calle';
+                                                            try {
+                                                                const parsed = JSON.parse(merchant.address);
+                                                                return parsed.street || merchant.address;
+                                                            } catch (e) {
+                                                                return merchant.address;
+                                                            }
+                                                        })()}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
