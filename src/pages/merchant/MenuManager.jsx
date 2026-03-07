@@ -126,10 +126,10 @@ export default function MenuManager() {
                     <button className="sidebar-link active" style={{ color: 'white' }}>
                         <UtensilsCrossed size={18} /> Menú / Platillos
                     </button>
-                    <button className="sidebar-link" onClick={() => { }} style={{ color: '#9ca3af' }}>
+                    <button className="sidebar-link" onClick={() => navigate('/merchant/orders')} style={{ color: '#9ca3af' }}>
                         <ShoppingBag size={18} /> Historial Pedidos
                     </button>
-                    <button className="sidebar-link" onClick={() => { }} style={{ color: '#9ca3af' }}>
+                    <button className="sidebar-link" onClick={() => navigate('/merchant/settings')} style={{ color: '#9ca3af' }}>
                         <Settings size={18} /> Ajustes Local
                     </button>
                 </nav>

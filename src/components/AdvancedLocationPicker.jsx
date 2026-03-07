@@ -70,9 +70,6 @@ export default function AdvancedLocationPicker({ currentAddress, onSave, onClose
     const [location, setLocation] = useState(currentAddress?.location || null);
     const [streetLabel, setStreetLabel] = useState(currentAddress?.street || '');
     const [colonyLabel, setColonyLabel] = useState(currentAddress?.colony || '');
-    const [buildingType, setBuildingType] = useState(currentAddress?.buildingType || 'house');
-    const [aptNumber, setAptNumber] = useState(currentAddress?.aptNumber || '');
-    const [deliveryMethod, setDeliveryMethod] = useState(currentAddress?.deliveryMethod || 'door');
     const [deliveryNotes, setDeliveryNotes] = useState(currentAddress?.deliveryNotes || '');
     const [addressTag, setAddressTag] = useState(currentAddress?.label || 'Casa');
     const [searchInput, setSearchInput] = useState('');
@@ -215,7 +212,7 @@ export default function AdvancedLocationPicker({ currentAddress, onSave, onClose
         if (!streetLabel.trim()) return;
         onSave({
             label: addressTag, street: streetLabel, colony: colonyLabel,
-            buildingType, aptNumber, deliveryMethod, deliveryNotes,
+            deliveryNotes,
             location: location || TLAPA_CENTER
         });
     };
@@ -346,28 +343,7 @@ export default function AdvancedLocationPicker({ currentAddress, onSave, onClose
                     </div>
                 </div>
 
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>Tipo de edificio</h3>
-                <div style={{ marginBottom: 24 }}>
-                    {BUILDING_TYPES.map(t => (
-                        <OptionCard key={t.id} item={t} isSelected={buildingType === t.id} onSelect={setBuildingType} icon={t.icon} />
-                    ))}
-                </div>
-
-                {['apartment', 'office', 'hotel'].includes(buildingType) && (
-                    <div style={{ marginBottom: 24 }}>
-                        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>Departamento/Piso</h3>
-                        <input value={aptNumber} onChange={e => setAptNumber(e.target.value)}
-                            placeholder="Ej: Apto 302"
-                            style={{ width: '100%', padding: '16px', background: 'white', border: '2px solid #e2e8f0', borderRadius: 12 }} />
-                    </div>
-                )}
-
-                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>Método de entrega</h3>
-                <div style={{ marginBottom: 24 }}>
-                    {DELIVERY_METHODS.map(m => (
-                        <OptionCard key={m.id} item={m} isSelected={deliveryMethod === m.id} onSelect={setDeliveryMethod} />
-                    ))}
-                </div>
+                {/* Removed repetitive Building Type and Delivery Method sections */}
 
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: 12 }}>Notas</h3>
                 <div style={{ background: '#f1f5f9', borderRadius: 16, padding: 16, marginBottom: 24, border: '1px solid #e2e8f0' }}>
