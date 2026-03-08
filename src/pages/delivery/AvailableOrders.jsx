@@ -12,13 +12,24 @@ import DriverLocationMap from '../../components/DriverLocationMap';
 export default function AvailableOrders() {
     const { user, logout } = useAuth(); // Keeping logout for fallback or profile logic elsewhere
     const { orders, acceptOrder } = useOrders();
-    const { weather, isRaining, platformSettings } = useSmartDelivery();
+    const {
+        isOnline,
+        setIsOnline,
+        currentLocation,
+        weather,
+        isRaining,
+        merchantLoad,
+        getDriverRanking,
+        platformSettings
+    } = useSmartDelivery();
+
+    const isVerified = user?.verification_status === 'approved' || user?.isVerified === true;
+
     const navigate = useNavigate();
 
     // Radar logic for incoming orders
     const [radarOrders, setRadarOrders] = useState([]);
 
-    const [isOnline, setIsOnline] = useState(user?.isOnline ?? true);
 
     const toggleOnline = async () => {
         const newVal = !isOnline;

@@ -218,6 +218,13 @@ export default function Login() {
                         ¿No tienes una cuenta? <a href="/register" onClick={(e) => { e.preventDefault(); navigate('/register'); }} style={{ color: '#ee652b', fontWeight: 800, textDecoration: 'none' }}>Regístrate</a>
                     </p>
 
+                    <div style={{ marginTop: '16px', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+                        <a href="/register?role=driver" onClick={(e) => { e.preventDefault(); navigate('/register?role=driver'); }}
+                            style={{ color: '#0369a1', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            🚀 ¿Quieres repartir con nosotros? Regístrate aquí
+                        </a>
+                    </div>
+
 
                 </div>
             </div>
