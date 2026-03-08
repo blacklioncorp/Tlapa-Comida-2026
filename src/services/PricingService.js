@@ -8,44 +8,11 @@
 import { supabase } from '../supabase';
 import { fetchCurrentWeather } from './WeatherService';
 import { importLibrary } from './GoogleMapsLoader';
-
-const CACHE_KEY = 'tlapa_pricing_settings';
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+import { getAllSettings } from './SettingsService';
 
 /**
- * Fetch settings from Supabase or Cache
+ * Calculate Traffic Multiplier using Google Maps Routes API
  */
-async function getSettings() {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < CACHE_TTL) return data;
-    }
-
-    try {
-        const { data, error } = await supabase.from('delivery_settings').select('*');
-        if (error) throw error;
-
-        const settings = data.reduce((acc, curr) => {
-            acc[curr.key] = curr.value;
-            return acc;
-        }, {});
-
-        localStorage.setItem(CACHE_KEY, JSON.stringify({
-            data: settings,
-            timestamp: Date.now()
-        }));
-
-        return settings;
-    } catch (err) {
-        console.warn('[PricingService] Failed to fetch settings, using hardcoded fallbacks', err);
-        return {
-            weather_multipliers: { clear: 1.0, cloudy: 1.0, fog: 1.15, drizzle: 1.2, rain: 1.35, heavy_rain: 1.5, storm: 1.8 },
-            traffic_thresholds: { low: 1.1, medium: 1.3, high: 1.5 },
-            base_fees: { default: 20 }
-        };
-    }
-}
 
 /**
  * Point in Polygon (Ray Casting Algorithm)
@@ -107,7 +74,7 @@ export async function calculateDynamicPricing(params) {
 
     // 1. Get Settings & Weather
     const [settings, weather, { data: zones }] = await Promise.all([
-        getSettings(),
+        getAllSettings(),
         fetchCurrentWeather(),
         supabase.from('delivery_zones').select('*').eq('is_active', true)
     ]);

@@ -72,14 +72,16 @@ export function distanceToMinutes(distanceKm, vehicleType = 'moto') {
  * Get all available drivers sorted by proximity to a merchant
  * @param {string} merchantId - The merchant to pick up from
  * @param {Array} allOrders - Current orders to check which drivers are busy
+ * @param {object} options - { maxRadius }
  * @returns {Array} Sorted array of { driver, distance, estimatedPickupMinutes }
  */
-export function rankDriversByProximity(merchantId, allOrders = []) {
+export function rankDriversByProximity(merchantId, allOrders = [], options = {}) {
     const merchant = MERCHANTS.find(m => m.id === merchantId);
     if (!merchant?.location) return [];
 
     const merchantLat = merchant.location.lat;
     const merchantLng = merchant.location.lng;
+    const maxRadius = options.maxRadius || 8; // default 8km
 
     // Get all drivers
     const drivers = ALL_USERS.filter(u => u.role === 'driver' && u.isActive);
@@ -108,6 +110,9 @@ export function rankDriversByProximity(merchantId, allOrders = []) {
                 merchantLat, merchantLng
             );
 
+            // Filter by maxRadius if provided
+            if (distance > maxRadius) return null;
+
             const vehicleType = driver.driverMeta?.vehicleType || 'moto';
             const estimatedPickupMinutes = distanceToMinutes(distance, vehicleType);
             const isBusy = busyDriverIds.has(driver.id);
@@ -134,8 +139,8 @@ export function rankDriversByProximity(merchantId, allOrders = []) {
 /**
  * Get the best available driver for a specific order
  */
-export function getBestDriverForOrder(merchantId, allOrders = []) {
-    const ranked = rankDriversByProximity(merchantId, allOrders);
+export function getBestDriverForOrder(merchantId, allOrders = [], options = {}) {
+    const ranked = rankDriversByProximity(merchantId, allOrders, options);
     return ranked.find(d => !d.isBusy) || ranked[0] || null;
 }
 
@@ -247,6 +252,7 @@ export function calculateDynamicETA({
     deliveryAddress,
     allOrders = [],
     weatherCondition = null,
+    operationConfig = null,
 }) {
     const merchant = MERCHANTS.find(m => m.id === merchantId);
     if (!merchant) {
@@ -261,6 +267,7 @@ export function calculateDynamicETA({
     }
 
     const factors = [];
+    const maxDriverRadius = operationConfig?.maxDriverRadius || 8;
 
     // 1. Base prep time from merchant
     let basePrepTime = merchant.avgPrepTime || 20;
@@ -278,7 +285,7 @@ export function calculateDynamicETA({
     }
 
     // 3. Best driver pickup time
-    const bestDriver = getBestDriverForOrder(merchantId, allOrders);
+    const bestDriver = getBestDriverForOrder(merchantId, allOrders, { maxRadius: maxDriverRadius });
     let pickupTime = bestDriver ? bestDriver.estimatedPickupMinutes : 8;
     if (bestDriver && bestDriver.distance > 1.5) {
         factors.push({

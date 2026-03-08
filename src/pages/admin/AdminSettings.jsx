@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Save, Bell, Globe, DollarSign, Shield, Palette, Plus, X, Tag, LayoutGrid, Gift, Truck } from 'lucide-react';
+import { supabase } from '../../supabase';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Save, Bell, Globe, DollarSign, Shield, LayoutGrid, Gift, Truck } from 'lucide-react';
 
 export default function AdminSettings() {
-    const { logout } = useAuth();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [saved, setSaved] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     // Push notifications
     const [pushTitle, setPushTitle] = useState('');
@@ -27,6 +29,7 @@ export default function AdminSettings() {
         deliveryBaseFee: 20,
         deliveryPerKm: 5,
         maxDeliveryRadius: 8,
+        maxDriverRadius: 8, // New: Search radius for drivers
         minOrderAmount: 50,
         serviceFeePct: 5,
         enableNotifications: true,
@@ -36,12 +39,75 @@ export default function AdminSettings() {
         maintenanceMode: false,
     });
 
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const { data, error } = await supabase.from('delivery_settings').select('*');
+                if (error) throw error;
+
+                if (data && data.length > 0) {
+                    const mapped = {};
+                    data.forEach(item => {
+                        Object.assign(mapped, item.value);
+                    });
+                    setSettings(prev => ({ ...prev, ...mapped }));
+                }
+            } catch (err) {
+                console.error("[AdminSettings] Error fetching settings:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchSettings();
+    }, []);
+
     const update = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
 
-    const handleSave = () => {
-        localStorage.setItem('tlapa_admin_settings', JSON.stringify(settings));
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2500);
+    const handleSave = async () => {
+        try {
+            // Split settings back into their respective keys for storage
+            const updates = [
+                {
+                    key: 'platform_config',
+                    value: {
+                        platformName: settings.platformName,
+                        supportEmail: settings.supportEmail,
+                        supportPhone: settings.supportPhone,
+                        enableNotifications: settings.enableNotifications,
+                        enableSounds: settings.enableSounds,
+                        maintenanceMode: settings.maintenanceMode,
+                    }
+                },
+                {
+                    key: 'fees_and_limits',
+                    value: {
+                        defaultCommission: settings.defaultCommission,
+                        deliveryBaseFee: settings.deliveryBaseFee,
+                        deliveryPerKm: settings.deliveryPerKm,
+                        minOrderAmount: settings.minOrderAmount,
+                        serviceFeePct: settings.serviceFeePct,
+                    }
+                },
+                {
+                    key: 'operation_config',
+                    value: {
+                        maxDeliveryRadius: settings.maxDeliveryRadius,
+                        maxDriverRadius: settings.maxDriverRadius,
+                        autoAssignDrivers: settings.autoAssignDrivers,
+                        requireDriverDocs: settings.requireDriverDocs,
+                    }
+                }
+            ];
+
+            const { error } = await supabase.from('delivery_settings').upsert(updates);
+            if (error) throw error;
+
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2500);
+        } catch (err) {
+            console.error("[AdminSettings] Error saving settings:", err);
+            alert("Error al guardar los ajustes: " + err.message);
+        }
     };
 
     const handleSendPush = () => {
@@ -61,10 +127,14 @@ export default function AdminSettings() {
         setTimeout(() => setPushSent(false), 3000);
     };
 
+    if (loading) {
+        return <div style={{ padding: '80px', textAlign: 'center' }}>Cargando configuración...</div>;
+    }
+
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar">
-                <div className="logo">Tlapa <span>Comida</span></div>
+            <aside className="admin-sidebar" style={{ background: '#111827' }}>
+                <div className="logo" style={{ color: 'white' }}>Tlapa <span>Comida</span></div>
                 <nav className="sidebar-nav">
                     <button className="sidebar-link" onClick={() => navigate('/admin')}>
                         <BarChart3 size={18} /> Dashboard
@@ -189,9 +259,18 @@ export default function AdminSettings() {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Radio máximo de cobertura (km)</label>
+                            <label className="form-label">Radio máximo de cobertura cliente (km)</label>
                             <input className="form-input" type="number" min="1" max="50" value={settings.maxDeliveryRadius}
                                 onChange={(e) => update('maxDeliveryRadius', Number(e.target.value))} />
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Radio de asignación de repartidores (km)</label>
+                            <input className="form-input" type="number" min="1" max="50" value={settings.maxDriverRadius}
+                                onChange={(e) => update('maxDriverRadius', Number(e.target.value))} />
+                            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
+                                Distancia máxima a la que se buscan repartidores para un pedido.
+                            </p>
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>

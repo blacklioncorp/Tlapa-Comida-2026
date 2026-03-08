@@ -12,7 +12,7 @@ import DriverLocationMap from '../../components/DriverLocationMap';
 export default function AvailableOrders() {
     const { user, logout } = useAuth(); // Keeping logout for fallback or profile logic elsewhere
     const { orders, acceptOrder } = useOrders();
-    const { weather, isRaining } = useSmartDelivery();
+    const { weather, isRaining, platformSettings } = useSmartDelivery();
     const navigate = useNavigate();
 
     // Radar logic for incoming orders
@@ -138,6 +138,11 @@ export default function AvailableOrders() {
         }
         const priority = calculateOrderPriority(order);
         return { ...order, merchant, distanceKm, priority };
+    }).filter(order => {
+        // Filter by dynamic driver radius
+        const maxRadius = platformSettings?.operation_config?.maxDriverRadius || 8;
+        if (order.distanceKm > maxRadius) return false;
+        return true;
     }).sort((a, b) => {
         if (a.distanceKm !== null && b.distanceKm !== null) {
             const distScore = a.distanceKm - b.distanceKm;
