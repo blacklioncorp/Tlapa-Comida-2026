@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Shield, Ban, FileText, Star, X, Phone, Camera, Plus, Key, Bike, Truck, DollarSign, LayoutGrid, Gift, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Shield, ShieldCheck, Ban, FileText, Star, X, Phone, Camera, Plus, Key, Bike, Truck, DollarSign, LayoutGrid, Gift, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../supabase';
 import AdvancedLocationPicker from '../../components/AdvancedLocationPicker';
 
@@ -45,6 +45,7 @@ export default function UserManagement() {
             const { data } = await supabase.from('users').select('*');
             if (data) {
                 setClients(data.filter(u => u.role === 'client'));
+                // Ensure all drivers are shown, even those pending verification
                 setDrivers(data.filter(u => u.role === 'driver'));
             }
         };
