@@ -259,8 +259,45 @@ export function AuthProvider({ children }) {
         }
     };
 
+    // --- PASSWORD RESET FLOW ---
+
+    const sendPasswordResetEmail = async (email) => {
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            });
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error("Reset email error:", error);
+            return { success: false, error: 'No se pudo enviar el correo de recuperación' };
+        }
+    };
+
+    const resetPassword = async (newPassword) => {
+        try {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error("Reset password error:", error);
+            return { success: false, error: 'No se pudo actualizar la contraseña' };
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, loading, loginAs, login, loginWithGoogle, register, logout, updateUser }}>
+        <AuthContext.Provider value={{
+            user,
+            loading,
+            loginAs,
+            login,
+            loginWithGoogle,
+            register,
+            logout,
+            updateUser,
+            sendPasswordResetEmail,
+            resetPassword
+        }}>
             {!loading && children}
         </AuthContext.Provider>
     );

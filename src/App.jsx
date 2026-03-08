@@ -8,6 +8,8 @@ import { SmartDeliveryProvider } from './contexts/SmartDeliveryContext';
 // Auth Pages
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 
 // Client Pages
 import ClientHome from './pages/client/Home';
@@ -68,6 +70,8 @@ function AppRoutes() {
               '/'
       } replace />} />
       <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
+      <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/" replace />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Client Routes */}
       <Route path="/" element={

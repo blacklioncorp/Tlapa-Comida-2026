@@ -160,9 +160,9 @@ export default function Login() {
                                 <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>
                                     Contraseña
                                 </label>
-                                <a href="#" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#ee652b', textDecoration: 'none' }}>
+                                <Link to="/forgot-password" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#ee652b', textDecoration: 'none' }}>
                                     ¿Olvidaste tu contraseña?
-                                </a>
+                                </Link>
                             </div>
                             <div style={{ position: 'relative' }}>
                                 <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
