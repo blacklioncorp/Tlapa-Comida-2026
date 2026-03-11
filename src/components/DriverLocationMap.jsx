@@ -89,7 +89,7 @@ export default function DriverLocationMap({ driverLocation, height = 200, style 
     }
 
     return (
-        <div style={{ position: 'relative', ...style }}>
+        <div style={{ position: 'relative', height, ...style }}>
             <div
                 ref={mapContainerRef}
                 style={{

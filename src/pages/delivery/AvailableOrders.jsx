@@ -5,25 +5,43 @@ import { useOrders } from '../../contexts/OrderContext';
 import { useSmartDelivery } from '../../contexts/SmartDeliveryContext';
 import { supabase } from '../../supabase';
 import { haversineDistance, calculateOrderPriority } from '../../services/SmartOrderManager';
+import { TLAPA_CENTER } from '../../services/MapsCache';
 import { MapPin, Navigation, Star, CheckCircle, Power, User, History, Wallet, Store, Utensils } from 'lucide-react';
 import DriverLocationMap from '../../components/DriverLocationMap';
 
 export default function AvailableOrders() {
     const { user, logout } = useAuth(); // Keeping logout for fallback or profile logic elsewhere
     const { orders, acceptOrder } = useOrders();
-    const { weather, isRaining } = useSmartDelivery();
+    const {
+        isOnline,
+        setIsOnline,
+        currentLocation,
+        weather,
+        isRaining,
+        merchantLoad,
+        getDriverRanking,
+        platformSettings
+    } = useSmartDelivery();
+
+    const isVerified = user?.verification_status === 'approved' || user?.isVerified === true;
+
     const navigate = useNavigate();
 
     // Radar logic for incoming orders
     const [radarOrders, setRadarOrders] = useState([]);
 
-    const [isOnline, setIsOnline] = useState(() => {
-        try {
-            const saved = localStorage.getItem('tlapa_driver_online_' + user?.id);
-            return saved !== null ? JSON.parse(saved) : true;
-        } catch { return true; }
-    });
 
+    const toggleOnline = async () => {
+        const newVal = !isOnline;
+        setIsOnline(newVal);
+        try {
+            await supabase.from('users').update({ isOnline: newVal }).eq('id', user.id);
+        } catch (e) {
+            console.error("Error updating online status:", e);
+        }
+    };
+
+    const myActiveOrder = orders.find(o => o.driverId === user.id && !['delivered', 'cancelled'].includes(o.status));
     useEffect(() => {
         if (!user || user.isBlockedDueToCash) return;
 
@@ -52,50 +70,90 @@ export default function AvailableOrders() {
 
         fetchIncoming();
 
-        const subscription = supabase.channel('public:orders:radar')
+        const subscription = supabase.channel(`public:orders:radar:${user.id}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
-                // Either new searching_driver, or an order got accepted by someone else and changed status
                 fetchIncoming();
             })
-            .subscribe();
+            .subscribe((status, err) => {
+                if (err) console.warn('[AvailableOrders] Supabase sync error:', err);
+            });
 
         return () => {
             supabase.removeChannel(subscription);
         };
     }, [user, isOnline]);
 
-    const toggleOnline = () => {
-        const newVal = !isOnline;
-        setIsOnline(newVal);
-        localStorage.setItem('tlapa_driver_online_' + user.id, JSON.stringify(newVal));
-    };
-
-    const myActiveOrder = orders.find(o => o.driverId === user.id && !['delivered', 'cancelled'].includes(o.status));
     const todayEarnings = orders
         .filter(o => o.driverId === user.id && o.status === 'delivered')
         .reduce((sum, o) => sum + (o.totals.deliveryFee || 0), 0);
     const todayDeliveries = orders.filter(o => o.driverId === user.id && o.status === 'delivered').length;
 
-    let driverLocation = user.currentLocation;
-    try {
-        const saved = localStorage.getItem('tlapa_driver_locations');
-        if (saved) {
-            const locs = JSON.parse(saved);
-            if (locs[user.id]) driverLocation = locs[user.id];
+    const [liveLocation, setLiveLocation] = useState(user.currentLocation || TLAPA_CENTER);
+
+    // PERIODIC GPS SYNC (Every 15-30 seconds if online)
+    useEffect(() => {
+        if (!isOnline || !user) return;
+
+        const updateLocation = () => {
+            if (!navigator.geolocation) return;
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
+                    setLiveLocation(pos);
+                    // Sync to DB
+                    await supabase.from('users').update({ currentLocation: pos }).eq('id', user.id);
+                },
+                null,
+                { enableHighAccuracy: true }
+            );
+        };
+
+        updateLocation(); // Immediate
+        const interval = setInterval(updateLocation, 25000); // Periodic
+
+        return () => clearInterval(interval);
+    }, [isOnline, user?.id]);
+
+    const requestGps = () => {
+        if (!navigator.geolocation) {
+            alert('Tu navegador no soporta geolocalización.');
+            return;
         }
-    } catch { }
+
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const pos = { lat: position.coords.latitude, lng: position.coords.longitude };
+                setLiveLocation(pos);
+                // Sync to DB immediately manual
+                await supabase.from('users').update({ currentLocation: pos }).eq('id', user.id);
+            },
+            (error) => {
+                let msg = 'Error desconocido obteniendo ubicación.';
+                if (error.code === 1) msg = 'Permiso de ubicación denegado.';
+                if (error.code === 2) msg = 'Ubicación no disponible.';
+                if (error.code === 3) msg = 'Tiempo de espera agotado.';
+                alert(msg);
+            },
+            { enableHighAccuracy: true }
+        );
+    };
 
     const enrichedOrders = radarOrders.map(order => {
         const merchant = order.merchant;
         let distanceKm = null;
-        if (driverLocation && merchant?.location) {
+        if (liveLocation && merchant?.location) {
             distanceKm = haversineDistance(
-                driverLocation.lat, driverLocation.lng,
+                liveLocation.lat, liveLocation.lng,
                 merchant.location.lat, merchant.location.lng
             );
         }
         const priority = calculateOrderPriority(order);
         return { ...order, merchant, distanceKm, priority };
+    }).filter(order => {
+        // Filter by dynamic driver radius
+        const maxRadius = platformSettings?.operation_config?.maxDriverRadius || 8;
+        if (order.distanceKm > maxRadius) return false;
+        return true;
     }).sort((a, b) => {
         if (a.distanceKm !== null && b.distanceKm !== null) {
             const distScore = a.distanceKm - b.distanceKm;
@@ -118,7 +176,7 @@ export default function AvailableOrders() {
         <div className="app-container" style={{ padding: 0, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {/* Background Map - Full screen */}
             <div className="fullscreen-map-container" style={{ zIndex: 0 }}>
-                <DriverLocationMap driverLocation={driverLocation} height="100vh" />
+                <DriverLocationMap driverLocation={liveLocation || TLAPA_CENTER} height="100vh" />
                 <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(230,230,220,0.9) 0%, rgba(240,240,230,0.7) 30%, transparent 60%, rgba(255,255,255,0.95) 80%)', pointerEvents: 'none' }} />
             </div>
 
@@ -135,16 +193,18 @@ export default function AvailableOrders() {
                             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>Hola, {user.displayName?.split(' ')[0] || 'Carlos M.'}</h2>
                         </div>
                     </div>
-                    <button onClick={toggleOnline} style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '6px 12px', borderRadius: 20, border: 'none',
-                        background: isOnline ? '#10b981' : '#ef4444', color: 'white',
-                        fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'white' }} />
-                        {isOnline ? 'EN LÍNEA' : 'OFFLINE'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <button onClick={toggleOnline} style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '8px 16px', borderRadius: 24, border: 'none',
+                            background: isOnline ? '#10b981' : '#ef4444', color: 'white',
+                            fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                        }}>
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'white' }} />
+                            {isOnline ? 'EN LÍNEA' : 'OFFLINE'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Earnings Widget */}
@@ -175,7 +235,7 @@ export default function AvailableOrders() {
 
                 {/* Center Map Locator Button */}
                 <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
-                    <button style={{ width: 48, height: 48, borderRadius: 16, background: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <button onClick={requestGps} style={{ width: 48, height: 48, borderRadius: 16, background: 'white', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Navigation size={24} color="#334155" />
                     </button>
                 </div>
@@ -284,15 +344,11 @@ export default function AvailableOrders() {
                     <MapPin size={22} style={{ marginBottom: 4 }} />
                     MAPA
                 </button>
-                <button className="bottom-nav-item" onClick={() => navigate('/delivery/history')}>
-                    <History size={22} style={{ marginBottom: 4 }} />
-                    HISTORIAL
-                </button>
                 <button className="bottom-nav-item" onClick={() => navigate('/delivery/wallet')}>
                     <Wallet size={22} style={{ marginBottom: 4 }} />
-                    CARTERA
+                    FINANZAS
                 </button>
-                <button className="bottom-nav-item" onClick={() => navigate('/profile')}>
+                <button className="bottom-nav-item" onClick={() => navigate('/delivery/profile')}>
                     <User size={22} style={{ marginBottom: 4 }} />
                     PERFIL
                 </button>

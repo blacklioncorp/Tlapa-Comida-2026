@@ -16,6 +16,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { fetchCurrentWeather } from '../services/WeatherService';
+import { getAllSettings } from '../services/SettingsService';
 import {
     analyzeMerchantLoad,
     getAllMerchantsLoad,
@@ -23,18 +24,22 @@ import {
     calculateDynamicETA,
     sortOrdersByPriority,
 } from '../services/SmartOrderManager';
+import { calculateDynamicPricing } from '../services/PricingService';
 import { useOrders } from './OrderContext';
 
 const SmartDeliveryContext = createContext(null);
 
 const WEATHER_REFRESH_MS = 10 * 60 * 1000; // 10 minutes
+const SETTINGS_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 
 export function SmartDeliveryProvider({ children }) {
     const { orders } = useOrders();
     const [weather, setWeather] = useState(null);
     const [weatherLoading, setWeatherLoading] = useState(true);
+    const [platformSettings, setPlatformSettings] = useState(null);
     const [merchantsLoad, setMerchantsLoad] = useState([]);
     const intervalRef = useRef(null);
+    const settingsIntervalRef = useRef(null);
 
     // ── Fetch weather on mount and every 10 min ──
     const refreshWeather = useCallback(async () => {
@@ -48,11 +53,26 @@ export function SmartDeliveryProvider({ children }) {
         }
     }, []);
 
+    // ── Fetch platform settings ──
+    const refreshSettings = useCallback(async () => {
+        try {
+            const data = await getAllSettings();
+            setPlatformSettings(data);
+        } catch (err) {
+            console.warn('[SmartDelivery] Settings fetch failed', err);
+        }
+    }, []);
+
     useEffect(() => {
         refreshWeather();
+        refreshSettings();
         intervalRef.current = setInterval(refreshWeather, WEATHER_REFRESH_MS);
-        return () => clearInterval(intervalRef.current);
-    }, [refreshWeather]);
+        settingsIntervalRef.current = setInterval(refreshSettings, SETTINGS_REFRESH_MS);
+        return () => {
+            clearInterval(intervalRef.current);
+            clearInterval(settingsIntervalRef.current);
+        };
+    }, [refreshWeather, refreshSettings]);
 
     // ── Recalculate merchant loads whenever orders change ──
     useEffect(() => {
@@ -67,8 +87,9 @@ export function SmartDeliveryProvider({ children }) {
 
     // ── Helper: get ranked drivers for a merchant ──
     const getDriverRanking = useCallback((merchantId) => {
-        return rankDriversByProximity(merchantId, orders);
-    }, [orders]);
+        const config = platformSettings?.operation_config || {};
+        return rankDriversByProximity(merchantId, orders, { maxRadius: config.maxDriverRadius });
+    }, [orders, platformSettings]);
 
     // ── Helper: get dynamic ETA ──
     const getDynamicETA = useCallback((merchantId, deliveryAddress) => {
@@ -77,8 +98,17 @@ export function SmartDeliveryProvider({ children }) {
             deliveryAddress,
             allOrders: orders,
             weatherCondition: weather?.condition || null,
+            operationConfig: platformSettings?.operation_config || null,
         });
-    }, [orders, weather]);
+    }, [orders, weather, platformSettings]);
+
+    // ── Helper: get dynamic pricing ──
+    const getDynamicPricing = useCallback(async (params) => {
+        return calculateDynamicPricing({
+            weatherCondition: weather?.condition || null,
+            ...params
+        });
+    }, [weather]);
 
     // ── Helper: get priority-sorted available orders for drivers ──
     const getPrioritizedOrders = useCallback(() => {
@@ -103,6 +133,10 @@ export function SmartDeliveryProvider({ children }) {
             isRaining: weather?.isRaining || false,
             refreshWeather,
 
+            // Platform Settings
+            platformSettings,
+            refreshSettings,
+
             // Merchant load
             merchantsLoad,
             getMerchantLoad,
@@ -113,6 +147,9 @@ export function SmartDeliveryProvider({ children }) {
 
             // ETA
             getDynamicETA,
+
+            // Pricing
+            getDynamicPricing,
 
             // Order priority
             getPrioritizedOrders,

@@ -32,12 +32,16 @@ export default function OrderRating() {
     const [loading, setLoading] = useState(false);
 
     const [merchant, setMerchant] = useState(null);
+    const [driver, setDriver] = useState(null);
 
     useEffect(() => {
         if (order?.merchantId && !merchant) {
             supabase.from('merchants').select('*').eq('id', order.merchantId).single().then(({ data }) => setMerchant(data));
         }
-    }, [order?.merchantId, merchant]);
+        if (order?.driverId && !driver) {
+            supabase.from('users').select('*').eq('id', order.driverId).single().then(({ data }) => setDriver(data));
+        }
+    }, [order?.merchantId, order?.driverId, merchant, driver]);
 
     if (!order) return <div className="app-container"><div className="loading-page"><div className="spinner" /></div></div>;
 
@@ -85,7 +89,7 @@ export default function OrderRating() {
                         }}>🛵</div>
                         <h3 style={{ fontWeight: 700 }}>Califica a tu repartidor</h3>
                     </div>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: 12 }}>Carlos M.</p>
+                    <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: 12 }}>{driver?.displayName || 'Tu Repartidor'}</p>
                     <StarSelector rating={driverRating} setRating={setDriverRating} />
                 </div>
 

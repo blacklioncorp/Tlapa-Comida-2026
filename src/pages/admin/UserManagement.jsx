@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Shield, Ban, FileText, Star, X, Phone, Camera, Plus, Key, Bike, Truck, DollarSign, LayoutGrid, Gift, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Shield, ShieldCheck, Ban, FileText, Star, X, Phone, Camera, Plus, Key, Bike, Truck, DollarSign, LayoutGrid, Gift, AlertTriangle, AlertCircle, CheckCircle2, Menu } from 'lucide-react';
 import { supabase } from '../../supabase';
+import AdvancedLocationPicker from '../../components/AdvancedLocationPicker';
+import AdminSidebar from '../../components/admin/AdminSidebar';
+
+const VEHICLE_BRANDS = [
+    'Honda', 'Yamaha', 'Suzuki', 'Italika', 'Bajaj', 'Vento', 'KTM', 'TVS',
+    'Nissan', 'Chevrolet', 'Volkswagen', 'Toyota', 'Kia', 'Ford', 'Mazda'
+];
 
 // SAMPLE_CLIENTS left intact here...
 const SAMPLE_CLIENTS = [
@@ -18,14 +25,15 @@ export default function UserManagement() {
     const [searchTerm, setSearchTerm] = useState('');
     const [clients, setClients] = useState([]);
     const [drivers, setDrivers] = useState([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // Drawer State
     const [selectedDriver, setSelectedDriver] = useState(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [amountPaid, setAmountPaid] = useState('');
 
-    // Configuración del modal de Alta/Edición
     const [isAddDriverOpen, setIsAddDriverOpen] = useState(false);
+    const [showDriverAddressPicker, setShowDriverAddressPicker] = useState(false);
     const [driverForm, setDriverForm] = useState({
         name: '', email: '', phone: '', address: '',
         vehicleType: 'moto', vehicleBrand: '', vehiclePlates: '',
@@ -39,6 +47,7 @@ export default function UserManagement() {
             const { data } = await supabase.from('users').select('*');
             if (data) {
                 setClients(data.filter(u => u.role === 'client'));
+                // Ensure all drivers are shown, even those pending verification
                 setDrivers(data.filter(u => u.role === 'driver'));
             }
         };
@@ -127,57 +136,70 @@ export default function UserManagement() {
 
     const handleSaveDriver = async (e) => {
         e.preventDefault();
-        alert("La creación de credenciales de acceso se ha migrado a Supabase Auth. Por favor, crea al repartidor desde el panel de Supabase Auth, y luego edítale los detalles operativos desde aquí o desde la base de datos.");
-        setIsAddDriverOpen(false);
+        try {
+            // Generate a valid UUID for the placeholder record
+            // This will be replaced by the real Auth UUID when the user signs up
+            const tempId = self.crypto?.randomUUID() || '00000000-0000-4000-8000-' + Date.now().toString(16).padStart(12, '0');
+
+            const newDriver = {
+                id: tempId.slice(0, 36), // Ensure it matches UUID length if using fallback
+                displayName: driverForm.name,
+                email: driverForm.email,
+                phone: driverForm.phone,
+                role: 'driver',
+                isVerified: false,
+                isBlocked: false,
+                cashInHand: 0,
+                vehicleAttributes: {
+                    type: driverForm.vehicleType,
+                    brand: driverForm.vehicleBrand,
+                    plates: driverForm.vehiclePlates
+                },
+                isExclusive: driverForm.isExclusive,
+                assignedRestaurantId: driverForm.assignedRestaurantId || null,
+                createdAt: new Date().toISOString()
+            };
+
+            const { error } = await supabase.from('users').insert([newDriver]);
+            if (error) throw error;
+
+            alert("Perfil de repartidor guardado. El repartidor debe registrarse en la aplicación usando el mismo correo para que se enlacen sus datos operativos.");
+            setIsAddDriverOpen(false);
+            setDriverForm({
+                name: '', email: '', phone: '', address: '',
+                vehicleType: 'moto', vehicleBrand: '', vehiclePlates: '',
+                isExclusive: false, assignedRestaurantId: ''
+            });
+        } catch (error) {
+            console.error(error);
+            alert("Error al guardar: " + error.message);
+        }
     };
 
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar">
-                <div className="logo">Tlapa <span>Comida</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/admin')}>
-                        <BarChart3 size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/merchants')}>
-                        <Store size={18} /> Comercios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/categories')}>
-                        <LayoutGrid size={18} /> Categorías
-                    </button>
-                    <button className="sidebar-link active">
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
-                        <ShoppingBag size={18} /> Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/promotions')}>
-                        <Gift size={18} /> Promociones
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/finance')}>
-                        <DollarSign size={18} /> Finanzas
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/settings')}>
-                        <Settings size={18} /> Ajustes
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <AdminSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
             <main className="admin-main">
-                <header className="admin-header">
-                    <div>
-                        <h1>Gestión de Usuarios</h1>
-                        <p>Control de clientes, flota de repartidores y exclusividad.</p>
+                <header className="admin-header admin-header-responsive">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1>Gestión de Usuarios</h1>
+                            <p>Control de clientes, flota de repartidores y exclusividad.</p>
+                        </div>
                     </div>
                     {activeTab === 'drivers' && (
-                        <button className="btn btn-primary" onClick={() => setIsAddDriverOpen(true)}>
-                            <Plus size={18} /> Nuevo Repartidor
-                        </button>
+                        <div className="admin-header-actions">
+                            <button className="btn btn-primary" onClick={() => setIsAddDriverOpen(true)}>
+                                <Plus size={18} /> Nuevo Repartidor
+                            </button>
+                        </div>
                     )}
                 </header>
 
@@ -266,10 +288,28 @@ export default function UserManagement() {
                                                     }
                                                 </td>
                                                 <td>
-                                                    {u.isVerified ?
-                                                        <span style={{ color: 'var(--color-success)', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}><Shield size={14} /> Aprobado</span> :
-                                                        <span style={{ color: 'var(--color-error)', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}><AlertTriangle size={14} /> Pendiente</span>
-                                                    }
+                                                    {u.verification_status === 'approved' || u.isVerified ? (
+                                                        <span style={{ color: 'var(--color-success)', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                            <ShieldCheck size={14} /> Aprobado
+                                                        </span>
+                                                    ) : u.verification_status === 'pending' ? (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                            <span style={{ color: '#f59e0b', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                <AlertCircle size={14} /> Pendiente
+                                                            </span>
+                                                            <button
+                                                                className="btn btn-ghost"
+                                                                style={{ fontSize: '0.65rem', padding: '2px 4px', height: 'auto', color: 'var(--color-primary)' }}
+                                                                onClick={() => { setSelectedDriver(u); setIsDrawerOpen(true); }}
+                                                            >
+                                                                Ver Expediente
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--color-error)', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                            <X size={14} /> Rechazado
+                                                        </span>
+                                                    )}
                                                 </td>
                                                 <td>
                                                     <div style={{ fontWeight: 800, color: isOverLimit ? 'var(--color-error)' : 'inherit' }}>
@@ -309,7 +349,27 @@ export default function UserManagement() {
                                 <div style={{ flex: 1 }}><input required type="tel" className="form-input" placeholder="Teléfono" value={driverForm.phone} onChange={e => setDriverForm({ ...driverForm, phone: e.target.value })} /></div>
                                 <div style={{ flex: 1 }}><input required type="email" className="form-input" placeholder="Email (Inicio sesión)" value={driverForm.email} onChange={e => setDriverForm({ ...driverForm, email: e.target.value })} /></div>
                             </div>
-                            <div className="form-group"><textarea required className="form-input" placeholder="Dirección de Residencia Completa" rows="2" value={driverForm.address} onChange={e => setDriverForm({ ...driverForm, address: e.target.value })}></textarea></div>
+                            <div className="form-group">
+                                <label className="form-label" style={{ fontSize: '0.8rem' }}>Dirección de Residencia Completa</label>
+                                <div
+                                    onClick={() => setShowDriverAddressPicker(true)}
+                                    style={{
+                                        padding: '12px 16px',
+                                        border: '2px solid var(--color-border)',
+                                        borderRadius: 'var(--radius-md)',
+                                        cursor: 'pointer',
+                                        background: 'var(--color-surface)',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <span style={{ color: driverForm.address ? 'inherit' : 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                                        {typeof driverForm.address === 'object' ? driverForm.address?.street : (driverForm.address || 'Toca para seleccionar ubicación GPS...')}
+                                    </span>
+                                    <span style={{ color: 'var(--color-primary)', fontSize: '0.85rem', fontWeight: 600 }}>Seleccionar Mapas</span>
+                                </div>
+                            </div>
 
                             <h3 style={{ fontSize: '0.95rem', margin: '24px 0 16px', color: 'var(--color-primary)' }}>2. Vehículo Operativo</h3>
                             <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
@@ -320,7 +380,12 @@ export default function UserManagement() {
                                         <option value="auto">Automóvil</option>
                                     </select>
                                 </div>
-                                <div style={{ flex: 1 }}><input required type="text" className="form-input" placeholder="Marca/Modelo" value={driverForm.vehicleBrand} onChange={e => setDriverForm({ ...driverForm, vehicleBrand: e.target.value })} /></div>
+                                <div style={{ flex: 1 }}>
+                                    <input required type="text" list="vehicle-brands" className="form-input" placeholder="Marca/Modelo" value={driverForm.vehicleBrand} onChange={e => setDriverForm({ ...driverForm, vehicleBrand: e.target.value })} />
+                                    <datalist id="vehicle-brands">
+                                        {VEHICLE_BRANDS.map(brand => <option key={brand} value={brand} />)}
+                                    </datalist>
+                                </div>
                             </div>
                             <div className="form-group"><input required type="text" className="form-input" placeholder="Placas (Ej. XY-123)" value={driverForm.vehiclePlates} onChange={e => setDriverForm({ ...driverForm, vehiclePlates: e.target.value })} /></div>
 
@@ -415,23 +480,66 @@ export default function UserManagement() {
                         {/* Documentos */}
                         <div style={{ background: '#f8fafc', borderRadius: 12, padding: 16, marginBottom: 24, border: '1px solid #e2e8f0' }}>
                             <h3 style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: 8, fontSize: '1rem' }}>
-                                <FileText size={18} color="#3b82f6" /> Documentos del Repartidor
+                                <FileText size={18} color="#3b82f6" /> Expediente Digital
                             </h3>
-                            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8 }}>
-                                <div style={{ minWidth: 120, height: 80, background: '#e2e8f0', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', color: '#64748b' }}>
-                                    INE (Frente)
+
+                            {selectedDriver.selfie_url && (
+                                <div style={{ marginBottom: 16, textAlign: 'center' }}>
+                                    <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: 8 }}>Fotografía de Perfil (Selfie)</p>
+                                    <img
+                                        src={selectedDriver.selfie_url}
+                                        style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', border: '3px solid #3b82f6' }}
+                                        alt="Selfie"
+                                    />
                                 </div>
-                                <div style={{ minWidth: 120, height: 80, background: '#e2e8f0', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', color: '#64748b' }}>
-                                    INE (Reverso)
-                                </div>
-                                <div style={{ minWidth: 120, height: 80, background: '#e2e8f0', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', color: '#64748b' }}>
-                                    Licencia
-                                </div>
+                            )}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+                                {selectedDriver.driver_documents && Object.entries(selectedDriver.driver_documents).map(([key, url]) => (
+                                    <a
+                                        key={key}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            padding: '8px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0',
+                                            textDecoration: 'none', color: 'var(--color-text)', fontSize: '0.7rem',
+                                            display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600
+                                        }}
+                                    >
+                                        <FileText size={14} /> {key.replace('_', ' ').toUpperCase()}
+                                    </a>
+                                ))}
                             </div>
-                            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                                <button className="btn btn-outline" style={{ flex: 1, fontSize: '0.75rem' }}>Ver Detalle</button>
-                                <button className="btn btn-primary" style={{ flex: 1, fontSize: '0.75rem' }} onClick={() => handleVerifyDriver(selectedDriver.id)} disabled={selectedDriver.isVerified}>
-                                    {selectedDriver.isVerified ? "✅ Verificado" : "Aprobar Docs"}
+
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                    className="btn btn-outline"
+                                    style={{ flex: 1, borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+                                    onClick={async () => {
+                                        if (window.confirm("¿Rechazar documentos? El repartidor deberá subirlos de nuevo.")) {
+                                            await supabase.from('users').update({ verification_status: 'rejected' }).eq('id', selectedDriver.id);
+                                            setIsDrawerOpen(false);
+                                        }
+                                    }}
+                                >
+                                    Rechazar
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ flex: 1 }}
+                                    onClick={async () => {
+                                        if (window.confirm("¿Aprobar repartidor? Esto le permitirá recibir pedidos.")) {
+                                            await supabase.from('users').update({
+                                                verification_status: 'approved',
+                                                isVerified: true
+                                            }).eq('id', selectedDriver.id);
+                                            setIsDrawerOpen(false);
+                                        }
+                                    }}
+                                    disabled={selectedDriver.verification_status === 'approved'}
+                                >
+                                    Aprobar Alta
                                 </button>
                             </div>
                         </div>
@@ -447,6 +555,18 @@ export default function UserManagement() {
                         </div>
                     </div>
                 </>
+            )}
+
+            {showDriverAddressPicker && (
+                <div style={{ position: 'fixed', zIndex: 9999 }}>
+                    <AdvancedLocationPicker
+                        onSave={(addr) => {
+                            setDriverForm({ ...driverForm, address: addr });
+                            setShowDriverAddressPicker(false);
+                        }}
+                        onClose={() => setShowDriverAddressPicker(false)}
+                    />
+                </div>
             )}
         </div>
     );

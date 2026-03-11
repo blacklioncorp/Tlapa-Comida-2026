@@ -8,6 +8,8 @@ import { SmartDeliveryProvider } from './contexts/SmartDeliveryContext';
 // Auth Pages
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 
 // Client Pages
 import ClientHome from './pages/client/Home';
@@ -39,6 +41,7 @@ import AdminSettings from './pages/admin/AdminSettings';
 import FinanceDashboard from './pages/admin/FinanceDashboard';
 import CategoryManagement from './pages/admin/CategoryManagement';
 import AdminPromotions from './pages/admin/AdminPromotions';
+import DeliveryManagement from './pages/admin/DeliveryManagement';
 
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -67,13 +70,16 @@ function AppRoutes() {
               '/'
       } replace />} />
       <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
+      <Route path="/forgot-password" element={!user ? <ForgotPassword /> : <Navigate to="/" replace />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Client Routes */}
       <Route path="/" element={
         <ProtectedRoute allowedRoles={['client', 'merchant', 'driver', 'admin']}>
-          {user?.role === 'merchant' ? <Navigate to="/merchant" replace /> :
-            user?.role === 'driver' ? <Navigate to="/delivery" replace /> :
-              <ClientHome />}
+          {user?.role === 'admin' ? <Navigate to="/admin" replace /> :
+            user?.role === 'merchant' ? <Navigate to="/merchant" replace /> :
+              user?.role === 'driver' ? <Navigate to="/delivery" replace /> :
+                <ClientHome />}
         </ProtectedRoute>
       } />
       <Route path="/restaurant/:id" element={<ProtectedRoute allowedRoles={['client']}><RestaurantDetail /></ProtectedRoute>} />
@@ -100,6 +106,7 @@ function AppRoutes() {
       <Route path="/admin/merchants" element={<ProtectedRoute allowedRoles={['admin']}><MerchantManagement /></ProtectedRoute>} />
       <Route path="/admin/categories" element={<ProtectedRoute allowedRoles={['admin']}><CategoryManagement /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']}><UserManagement /></ProtectedRoute>} />
+      <Route path="/admin/delivery" element={<ProtectedRoute allowedRoles={['admin']}><DeliveryManagement /></ProtectedRoute>} />
       <Route path="/admin/orders" element={<ProtectedRoute allowedRoles={['admin']}><OrdersManagement /></ProtectedRoute>} />
       <Route path="/admin/promotions" element={<ProtectedRoute allowedRoles={['admin']}><AdminPromotions /></ProtectedRoute>} />
       <Route path="/admin/finance" element={<ProtectedRoute allowedRoles={['admin']}><FinanceDashboard /></ProtectedRoute>} />

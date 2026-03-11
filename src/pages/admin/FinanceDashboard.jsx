@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../contexts/OrderContext';
@@ -7,8 +7,9 @@ import {
     BarChart3, Store, Users, ShoppingBag, Settings, LogOut,
     DollarSign, TrendingUp, Wallet, ArrowUpRight, ArrowDownRight,
     Building2, Bike, Smartphone, Filter, Download, ChevronDown, ChevronUp,
-    CircleDollarSign, Scale, Receipt, Percent, LayoutGrid, Gift
+    CircleDollarSign, Scale, Receipt, Percent, LayoutGrid, Gift, Truck, Menu
 } from 'lucide-react';
+import AdminSidebar from '../../components/admin/AdminSidebar';
 
 export default function FinanceDashboard() {
     const { logout } = useAuth();
@@ -19,6 +20,7 @@ export default function FinanceDashboard() {
     const [expandedDriver, setExpandedDriver] = useState(null);
     const [activeSection, setActiveSection] = useState('overview'); // overview, merchants, drivers
     const [merchants, setMerchants] = useState([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
         supabase.from('merchants').select('*').then(({ data }) => setMerchants(data || []));
@@ -228,49 +230,24 @@ export default function FinanceDashboard() {
     return (
         <div className="admin-layout">
             {/* Sidebar */}
-            <aside className="admin-sidebar">
-                <div className="logo">Tlapa <span>Comida</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/admin')}>
-                        <BarChart3 size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/merchants')}>
-                        <Store size={18} /> Comercios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/categories')}>
-                        <LayoutGrid size={18} /> Categorías
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
-                        <ShoppingBag size={18} /> Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/promotions')}>
-                        <Gift size={18} /> Promociones
-                    </button>
-                    <button className="sidebar-link active">
-                        <DollarSign size={18} /> Finanzas
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/settings')}>
-                        <Settings size={18} /> Ajustes
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <AdminSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
             <main className="admin-main">
                 {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>💰 Finanzas</h1>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Balanza de ingresos y deudas</p>
+                <div className="admin-header-responsive" style={{ marginBottom: 24, display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>💰 Finanzas</h1>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Balanza de ingresos y deudas</p>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
                         {[
                             { key: 'all', label: 'Todo' },
                             { key: 'today', label: 'Hoy' },

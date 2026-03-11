@@ -6,7 +6,7 @@ import { useSmartDelivery } from '../../contexts/SmartDeliveryContext';
 import { getCategories } from '../../data/seedData';
 import { supabase } from '../../supabase';
 import { Search, MapPin, ShoppingBag, Tag, Star, Clock, ChevronRight, LogOut, Ticket, Plus, LayoutDashboard } from 'lucide-react';
-import AddressModal from '../../components/AddressModal';
+import AdvancedLocationPicker from '../../components/AdvancedLocationPicker';
 import WeatherBanner from '../../components/WeatherBanner';
 import { MerchantLoadInline } from '../../components/MerchantLoadBadge';
 import { applyWeatherDelay, adjustedDeliveryFee } from '../../services/WeatherService';
@@ -277,7 +277,7 @@ export default function ClientHome() {
 
             {/* Address Setup Modal */}
             {showAddressModal && (
-                <AddressModal
+                <AdvancedLocationPicker
                     onSave={handleSaveAddress}
                     onClose={() => user?.savedAddresses?.length > 0 && setShowAddressModal(false)}
                 />

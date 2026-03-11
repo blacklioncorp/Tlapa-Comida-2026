@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getCategories } from '../../data/seedData';
 import { supabase } from '../../supabase';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Star, Edit2, Trash2, X, Save, Camera, Key, DollarSign, LayoutGrid, Gift } from 'lucide-react';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Star, Edit2, Trash2, X, Save, Camera, Key, DollarSign, LayoutGrid, Gift, Truck, Unlock, Menu } from 'lucide-react';
 import ImageUpload from '../../components/ImageUpload';
+import AdvancedLocationPicker from '../../components/AdvancedLocationPicker';
+import AdminSidebar from '../../components/admin/AdminSidebar';
 
 export default function MerchantManagement() {
     const { logout } = useAuth();
@@ -12,8 +14,10 @@ export default function MerchantManagement() {
     const [merchants, setMerchants] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [showAddressPicker, setShowAddressPicker] = useState(false);
     const [editingMerchant, setEditingMerchant] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const categories = getCategories();
 
@@ -40,12 +44,13 @@ export default function MerchantManagement() {
         deliveryFee: 20,
         minOrder: 100,
         address: '',
-        image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
+        logoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
+        ownerEmail: '',
         isOpen: true,
         rating: 5.0,
         reviews: 0,
-        loginEmail: '',
-        loginPassword: ''
+        rating: 5.0,
+        reviews: 0
     });
 
     const handleSearch = (e) => setSearchTerm(e.target.value);
@@ -63,12 +68,12 @@ export default function MerchantManagement() {
             deliveryFee: 20,
             minOrder: 100,
             address: '',
-            image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
+            logoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
+            ownerEmail: '',
+            isOpen: true,
             isOpen: true,
             rating: 5.0,
-            reviews: 0,
-            loginEmail: '',
-            loginPassword: ''
+            reviews: 0
         });
         setIsModalOpen(true);
     };
@@ -77,9 +82,7 @@ export default function MerchantManagement() {
         setEditingMerchant(merchant);
         setForm({
             ...merchant,
-            address: typeof merchant.address === 'object' ? merchant.address?.street || '' : merchant.address || '',
-            loginEmail: '',
-            loginPassword: ''
+            address: typeof merchant.address === 'object' ? merchant.address?.street || '' : merchant.address || ''
         });
         setIsModalOpen(true);
     };
@@ -87,27 +90,42 @@ export default function MerchantManagement() {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            const { loginEmail, loginPassword, ...merchantData } = form;
-            let merchantId = editingMerchant?.id;
+            const { address, ...restData } = form;
+            const merchantData = {
+                ...restData,
+                address: typeof address === 'object' ? JSON.stringify(address) : address
+            };
 
-            if (loginEmail && loginPassword) {
-                alert("La creación de credenciales de acceso se ha migrado a Supabase Auth y requiere un entorno seguro (Edge Function). Por favor, crea las credenciales desde el panel de Supabase. El perfil del comercio se guardará a continuación.");
-            }
+            let merchantId = editingMerchant?.id;
 
             if (!merchantId) {
                 merchantId = `merchant-${Date.now()}`;
-                const { error } = await supabase.from('merchants').insert([{
+                const { error: merchantError } = await supabase.from('merchants').insert([{
                     id: merchantId,
                     ...merchantData,
                     createdAt: new Date().toISOString()
                 }]);
-                if (error) throw error;
+                if (merchantError) throw merchantError;
+
+                // Immediate role sync for the owner user
+                if (merchantData.ownerEmail) {
+                    await supabase.from('users')
+                        .update({ role: 'merchant', merchantId: merchantId })
+                        .eq('email', merchantData.ownerEmail.toLowerCase().trim());
+                }
             } else {
-                const { error } = await supabase.from('merchants').update({
+                const { error: merchantError } = await supabase.from('merchants').update({
                     ...merchantData,
                     updatedAt: new Date().toISOString()
                 }).eq('id', merchantId);
-                if (error) throw error;
+                if (merchantError) throw merchantError;
+
+                // Sync role if email changed or to ensure consistency
+                if (merchantData.ownerEmail) {
+                    await supabase.from('users')
+                        .update({ role: 'merchant', merchantId: merchantId })
+                        .eq('email', merchantData.ownerEmail.toLowerCase().trim());
+                }
             }
 
             setIsModalOpen(false);
@@ -126,52 +144,53 @@ export default function MerchantManagement() {
         }
     };
 
+    const handleTogglePremium = async (merchant) => {
+        const confirmMsg = merchant.isPremium
+            ? `¿Quitarle el estado Premium a ${merchant.name}?\n\nVolverá a tener el límite de cambios de diseño (1 vez).`
+            : `¿Otorgar membresía Premium a ${merchant.name}?\n\nPodrá modificar el nombre, colores, banners y logos sin restricción alguna.`;
+
+        if (window.confirm(confirmMsg)) {
+            const { error } = await supabase.from('merchants').update({
+                isPremium: !merchant.isPremium,
+                updatedAt: new Date().toISOString()
+            }).eq('id', merchant.id);
+            if (error) alert("Error al actualizar la suscripción: " + error.message);
+        }
+    };
+
+    const handleResetAttempts = async (merchant) => {
+        if (window.confirm(`¿Resetear cambios agotados a ${merchant.name}?\n\nEsto le dará nuevamente 1 oportunidad gratuita de cambiar su diseño visual (ideal si pagaron por un cambio único extra sin necesidad de darles Premium).`)) {
+            const { error } = await supabase.from('merchants').update({
+                customizationAttempts: 0,
+                updatedAt: new Date().toISOString()
+            }).eq('id', merchant.id);
+            if (error) alert("Error al resetear oportunidades: " + error.message);
+        }
+    };
+
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar">
-                <div className="logo">Tlapa <span>Comida</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/admin')}>
-                        <BarChart3 size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link active">
-                        <Store size={18} /> Comercios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/categories')}>
-                        <LayoutGrid size={18} /> Categorías
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
-                        <ShoppingBag size={18} /> Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/promotions')}>
-                        <Gift size={18} /> Promociones
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/finance')}>
-                        <DollarSign size={18} /> Finanzas
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/settings')}>
-                        <Settings size={18} /> Ajustes
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <AdminSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
             <main className="admin-main">
-                <header className="admin-header">
-                    <div>
-                        <h1>Gestión de Comercios</h1>
-                        <p>Añade, edita y gestiona los restaurantes de la plataforma.</p>
+                <header className="admin-header admin-header-responsive">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1>Gestión de Comercios</h1>
+                            <p>Añade, edita y gestiona los restaurantes de la plataforma.</p>
+                        </div>
                     </div>
-                    <button className="btn btn-primary" onClick={openCreateModal}>
-                        <Store size={18} /> Nuevo Comercio
-                    </button>
+                    <div className="admin-header-actions">
+                        <button className="btn btn-primary" onClick={openCreateModal}>
+                            <Store size={18} /> Nuevo Comercio
+                        </button>
+                    </div>
                 </header>
 
                 <div className="admin-content">
@@ -205,13 +224,24 @@ export default function MerchantManagement() {
                                         <td>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                                 <img
-                                                    src={merchant.image}
+                                                    src={merchant.logoUrl || merchant.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800'}
                                                     alt={merchant.name}
                                                     style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }}
                                                 />
                                                 <div>
                                                     <div style={{ fontWeight: 700 }}>{merchant.name}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{typeof merchant.address === 'object' ? merchant.address?.street || 'Sin dirección' : merchant.address}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                                        {(() => {
+                                                            if (!merchant.address) return 'Sin dirección';
+                                                            if (typeof merchant.address === 'object') return merchant.address.street || 'Sin calle';
+                                                            try {
+                                                                const parsed = JSON.parse(merchant.address);
+                                                                return parsed.street || merchant.address;
+                                                            } catch (e) {
+                                                                return merchant.address;
+                                                            }
+                                                        })()}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </td>
@@ -226,7 +256,7 @@ export default function MerchantManagement() {
                                             </span>
                                         </td>
                                         <td>
-                                            <div style={{ fontSize: '0.85rem' }}>{merchant.deliveryTime} min</div>
+                                            <div style={{ fontSize: '0.85rem' }}>{merchant.deliveryTime || merchant.prepTime} min</div>
                                             <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>${merchant.deliveryFee} envío</div>
                                         </td>
                                         <td>
@@ -242,10 +272,18 @@ export default function MerchantManagement() {
                                         </td>
                                         <td>
                                             <div style={{ display: 'flex', gap: 8 }}>
-                                                <button className="btn btn-icon btn-ghost" onClick={() => openEditModal(merchant)}>
+                                                <button title="Editar" className="btn btn-icon btn-ghost" onClick={() => openEditModal(merchant)}>
                                                     <Edit2 size={16} />
                                                 </button>
-                                                <button className="btn btn-icon btn-ghost" onClick={() => handleDelete(merchant.id)}>
+                                                <button title={merchant.isPremium ? "Quitar Premium" : "Otorgar Premium"} className="btn btn-icon btn-ghost" onClick={() => handleTogglePremium(merchant)} style={{ color: merchant.isPremium ? '#d97706' : 'var(--color-text-muted)' }}>
+                                                    <Star size={16} fill={merchant.isPremium ? 'currentColor' : 'none'} />
+                                                </button>
+                                                {!merchant.isPremium && merchant.customizationAttempts >= 1 && (
+                                                    <button title="Resetear Intentos de Diseño a 0 (Dar 1 oportunidad extra)" className="btn btn-icon btn-ghost" onClick={() => handleResetAttempts(merchant)} style={{ color: '#2563eb' }}>
+                                                        <Unlock size={16} />
+                                                    </button>
+                                                )}
+                                                <button title="Eliminar Comercio" className="btn btn-icon btn-ghost" onClick={() => handleDelete(merchant.id)}>
                                                     <Trash2 size={16} color="var(--color-error)" />
                                                 </button>
                                             </div>
@@ -269,25 +307,6 @@ export default function MerchantManagement() {
                         </div>
                         <div className="modal-body">
                             <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                {/* Area exclusiva de credentials */}
-                                <div className="form-group" style={{ gridColumn: 'span 2', padding: 16, background: 'var(--color-primary-bg)', borderRadius: 8 }}>
-                                    <h4 style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-primary)' }}>
-                                        <Key size={16} /> Credenciales de Acceso (Opcional)
-                                    </h4>
-                                    <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 12 }}>
-                                        Llena estos campos si quieres configurar o pisar el inicio de sesión del dueño de la tienda.
-                                    </p>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                        <div>
-                                            <input type="email" placeholder="Correo electrónico" className="form-input"
-                                                value={form.loginEmail} onChange={(e) => setForm({ ...form, loginEmail: e.target.value })} />
-                                        </div>
-                                        <div>
-                                            <input type="text" placeholder="Contraseña temporal" className="form-input"
-                                                value={form.loginPassword} onChange={(e) => setForm({ ...form, loginPassword: e.target.value })} />
-                                        </div>
-                                    </div>
-                                </div>
 
                                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
                                     <label className="form-label">Nombre del Comercio</label>
@@ -296,6 +315,19 @@ export default function MerchantManagement() {
                                         className="form-input"
                                         value={form.name}
                                         onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        Correo del Dueño
+                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 'normal' }}>(Permitirá que el dueño se registre gratis)</span>
+                                    </label>
+                                    <input
+                                        type="email"
+                                        className="form-input"
+                                        value={form.ownerEmail}
+                                        placeholder="Ej: restaurante@ejemplo.com"
+                                        onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })}
                                     />
                                 </div>
                                 <div className="form-group">
@@ -339,22 +371,38 @@ export default function MerchantManagement() {
                                     />
                                 </div>
                                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                                    <label className="form-label">Dirección</label>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        value={form.address}
-                                        onChange={(e) => setForm({ ...form, address: e.target.value })}
-                                    />
+                                    <label className="form-label">Dirección (Ubicación GPS)</label>
+                                    <div
+                                        onClick={() => setShowAddressPicker(true)}
+                                        style={{
+                                            padding: '12px 16px',
+                                            border: '2px solid var(--color-border)',
+                                            borderRadius: 'var(--radius-md)',
+                                            cursor: 'pointer',
+                                            background: 'var(--color-surface)',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <span style={{ color: form.address ? 'inherit' : 'var(--color-text-muted)' }}>
+                                            {typeof form.address === 'object' ? form.address?.street : (form.address || 'Toca para seleccionar ubicación...')}
+                                        </span>
+                                        <span style={{ color: 'var(--color-primary)', fontSize: '0.85rem', fontWeight: 600 }}>Seleccionar</span>
+                                    </div>
                                 </div>
                                 <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                                    <label className="form-label">URL de Imagen</label>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        value={form.image}
-                                        onChange={(e) => setForm({ ...form, image: e.target.value })}
-                                    />
+                                    <label className="form-label">Imagen/Fotografía del Comercio</label>
+                                    <div style={{ marginTop: 8 }}>
+                                        <ImageUpload
+                                            currentImage={form.logoUrl || form.image}
+                                            onImageChange={(base64) => setForm({ ...form, logoUrl: base64 })}
+                                            shape="banner"
+                                            size={160}
+                                            label=""
+                                            id="merchant-image"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -366,6 +414,18 @@ export default function MerchantManagement() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Selector de Mapa en Pantalla Completa */}
+            {showAddressPicker && (
+                <AdvancedLocationPicker
+                    hideDetails={true}
+                    onSave={(addr) => {
+                        setForm({ ...form, address: addr });
+                        setShowAddressPicker(false);
+                    }}
+                    onClose={() => setShowAddressPicker(false)}
+                />
             )}
         </div>
     );

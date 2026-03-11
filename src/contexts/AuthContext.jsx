@@ -17,19 +17,20 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Build basic user data from Firebase Auth user object
-    const buildBasicUser = useCallback((fbUser) => {
-        const legacy = ALL_USERS.find(u => u.email === fbUser.email);
+    // Build basic user data from Supabase Auth user object
+    const buildBasicUser = useCallback((sbUser) => {
+        const legacy = ALL_USERS.find(u => u.email === sbUser.email);
+        const metadata = sbUser.user_metadata || {};
         return {
-            id: fbUser.uid,
-            email: fbUser.email,
-            displayName: fbUser.displayName || legacy?.displayName || 'Usuario',
-            role: fbUser.email === 'repartidor@ejemplo.com' ? 'driver' : (legacy?.role || 'client'),
-            avatarUrl: fbUser.photoURL || '',
+            id: sbUser.id,
+            email: sbUser.email,
+            displayName: metadata.displayName || legacy?.displayName || 'Usuario',
+            role: metadata.role || (sbUser.email === 'repartidor@ejemplo.com' ? 'driver' : (legacy?.role || 'client')),
+            avatarUrl: metadata.avatarUrl || '',
             savedAddresses: legacy?.savedAddresses || [],
-            phone: fbUser.phoneNumber || legacy?.phone || '',
+            phone: sbUser.phone || legacy?.phone || '',
             isActive: true,
-            merchantId: legacy?.merchantId || null,
+            merchantId: metadata.merchantId || legacy?.merchantId || null,
         };
     }, []);
 
@@ -195,11 +196,16 @@ export function AuthProvider({ children }) {
             if (error) throw error;
             const sbUser = data.user;
 
+            // The DB trigger will handle role/merchantId sync automatically
+            let finalRole = role || 'client';
+            let finalMerchantId = null;
+
             const newUserData = {
                 id: sbUser.id,
                 email,
                 displayName,
-                role: role || 'client',
+                role: finalRole,
+                merchantId: finalMerchantId,
                 phone: phone || '',
                 isActive: true,
                 avatarUrl: '',
@@ -253,8 +259,45 @@ export function AuthProvider({ children }) {
         }
     };
 
+    // --- PASSWORD RESET FLOW ---
+
+    const sendPasswordResetEmail = async (email) => {
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            });
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error("Reset email error:", error);
+            return { success: false, error: 'No se pudo enviar el correo de recuperación' };
+        }
+    };
+
+    const resetPassword = async (newPassword) => {
+        try {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error("Reset password error:", error);
+            return { success: false, error: 'No se pudo actualizar la contraseña' };
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, loading, loginAs, login, loginWithGoogle, register, logout, updateUser }}>
+        <AuthContext.Provider value={{
+            user,
+            loading,
+            loginAs,
+            login,
+            loginWithGoogle,
+            register,
+            logout,
+            updateUser,
+            sendPasswordResetEmail,
+            resetPassword
+        }}>
             {!loading && children}
         </AuthContext.Provider>
     );

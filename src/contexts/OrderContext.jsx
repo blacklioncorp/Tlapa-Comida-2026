@@ -13,7 +13,8 @@ const VALID_TRANSITIONS = {
     'preparing': ['ready', 'cancelled'],
     'ready': ['searching_driver'],
     'searching_driver': ['assigned_to_driver', 'picked_up', 'cancelled'],
-    'assigned_to_driver': ['picked_up', 'cancelled'],
+    'assigned_to_driver': ['arrived_at_merchant', 'picked_up', 'cancelled'],
+    'arrived_at_merchant': ['picked_up', 'cancelled'],
     'picked_up': ['on_the_way'],
     'on_the_way': ['delivered'],
     'delivered': [],
@@ -27,6 +28,7 @@ const TRANSITION_PERMISSIONS = {
     'ready': ['merchant', 'admin'],
     'searching_driver': ['system', 'admin'],
     'assigned_to_driver': ['driver', 'admin'],
+    'arrived_at_merchant': ['driver', 'admin'],
     'picked_up': ['driver', 'admin'],
     'on_the_way': ['driver', 'admin'],
     'delivered': ['driver', 'admin'],
@@ -80,6 +82,11 @@ export function OrderProvider({ children }) {
         let subscription = null;
 
         const fetchInitialOrders = async () => {
+            if (!user?.id) {
+                setLoading(false);
+                return;
+            }
+
             let query = supabase.from('orders').select('*').order('createdAt', { ascending: false });
 
             if (user.role === 'admin') {
@@ -104,7 +111,8 @@ export function OrderProvider({ children }) {
         const startListening = () => {
             if (subscription) return;
 
-            subscription = supabase.channel('public:orders')
+            // Use a unique channel name per session/mount to avoid StrictMode or multi-tab collisions
+            subscription = supabase.channel(`public:orders-ctx-${user?.id}-${Date.now()}`)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
                     // Update state optimistically based on incoming change
                     setOrders(current => {

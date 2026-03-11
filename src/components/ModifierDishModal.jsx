@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, X, Trash2, Save } from 'lucide-react';
 import { supabase } from '../supabase';
+import ImageUpload from './ImageUpload';
 
-export default function ModifierDishModal({ merchantId, editingItem, onClose }) {
+export default function ModifierDishModal({ merchantId, editingItem, onClose, existingCategories = [] }) {
     // Estado base del platillo
     const [formData, setFormData] = useState({
         name: editingItem?.name || '',
@@ -14,6 +15,16 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose }) 
         // Estado de Modificadores inicializado dinámicamente
         modifierGroups: editingItem?.modifiers || editingItem?.modifierGroups || []
     });
+
+    const [isCustomCategory, setIsCustomCategory] = useState(false);
+    const [customCategory, setCustomCategory] = useState('');
+
+    useEffect(() => {
+        if (editingItem?.category && !existingCategories.includes(editingItem.category)) {
+            setIsCustomCategory(true);
+            setCustomCategory(editingItem.category);
+        }
+    }, [editingItem, existingCategories]);
 
     // ---- MANEJADORES DE MODIFICADORES ---- //
     const addModifierGroup = () => {
@@ -83,7 +94,7 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose }) 
                 description: formData.description,
                 price: Number(formData.basePrice),
                 originalPrice: Number(formData.basePrice),
-                category: formData.category,
+                category: isCustomCategory ? customCategory : formData.category,
                 imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500',
                 isAvailable: formData.isAvailable,
                 modifiers: formData.modifierGroups
@@ -126,18 +137,59 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose }) 
                         </div>
                         <div className="form-group" style={{ flex: 1 }}>
                             <label className="form-label">Categoría</label>
-                            <input className="form-input" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} required placeholder="Ej. Hamburguesas" />
+                            <select
+                                className="form-input"
+                                value={isCustomCategory ? 'OTHER' : formData.category}
+                                onChange={(e) => {
+                                    if (e.target.value === 'OTHER') {
+                                        setIsCustomCategory(true);
+                                    } else {
+                                        setIsCustomCategory(false);
+                                        setFormData({ ...formData, category: e.target.value });
+                                    }
+                                }}
+                                required
+                            >
+                                <option value="" disabled>Seleccionar...</option>
+                                {existingCategories.map((cat, idx) => (
+                                    <option key={idx} value={cat}>{cat}</option>
+                                ))}
+                                <option value="OTHER">+ Nueva Categoría</option>
+                            </select>
                         </div>
                     </div>
+
+                    {isCustomCategory && (
+                        <div className="form-group" style={{ marginTop: -8, marginBottom: 20 }}>
+                            <label className="form-label">Nombre de Categoría Nueva</label>
+                            <input
+                                className="form-input"
+                                value={customCategory}
+                                onChange={(e) => setCustomCategory(e.target.value)}
+                                required
+                                placeholder="Ej: Especialidades de la Casa"
+                                autoFocus
+                            />
+                        </div>
+                    )}
 
                     <div className="form-group">
                         <label className="form-label">Descripción</label>
                         <textarea className="form-input" rows="3" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} required placeholder="Ingredientes y descripción..." />
                     </div>
 
-                    <div className="form-group">
-                        <label className="form-label">URL Fotografía (Opcional)</label>
-                        <input className="form-input" type="url" value={formData.imageUrl} onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })} placeholder="https://..." />
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label">Fotografía del Platillo (Opcional)</label>
+                        <div style={{ marginTop: 8 }}>
+                            <ImageUpload
+                                currentImage={formData.imageUrl}
+                                onImageChange={(base64) => setFormData({ ...formData, imageUrl: base64 })}
+                                shape="banner"
+                                size={140}
+                                label=""
+                                id="dish-image"
+                            />
+                        </div>
                     </div>
 
                     <hr style={{ margin: '32px 0 24px', borderColor: 'var(--color-border-light)' }} />

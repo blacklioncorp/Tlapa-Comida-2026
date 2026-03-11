@@ -19,6 +19,7 @@ export default function MenuManager() {
     const [editingItem, setEditingItem] = useState(null);
     const [loading, setLoading] = useState(true);
     const [merchantInfo, setMerchantInfo] = useState(null);
+    const [globalCategories, setGlobalCategories] = useState([]);
 
     const merchantId = user?.merchantId;
 
@@ -46,6 +47,14 @@ export default function MenuManager() {
                 setMenu(pData || []);
             } catch (err) {
                 console.error("Error fetching menu:", err);
+            }
+
+            // Fetch global categories
+            try {
+                const { data: cData } = await supabase.from('categories').select('name').order('name');
+                setGlobalCategories(cData?.map(c => c.name) || []);
+            } catch (err) {
+                console.error("Error fetching categories:", err);
             }
             setLoading(false);
         };
@@ -96,6 +105,11 @@ export default function MenuManager() {
         }
     };
 
+    const dishCategories = [...new Set([
+        ...globalCategories,
+        ...menu.map(item => item.category)
+    ])].filter(Boolean).sort();
+
     // 3. MENÚ REAL DESDE FIRESTORE
     // Abandonados los datos semilla simulados. Ahora cualquier platillo nuevo
     // agregado vía "Nuevo Platillo" se mostrará automáticamente aquí por onSnapshot.
@@ -112,10 +126,10 @@ export default function MenuManager() {
                     <button className="sidebar-link active" style={{ color: 'white' }}>
                         <UtensilsCrossed size={18} /> Menú / Platillos
                     </button>
-                    <button className="sidebar-link" onClick={() => { }} style={{ color: '#9ca3af' }}>
+                    <button className="sidebar-link" onClick={() => navigate('/merchant/orders')} style={{ color: '#9ca3af' }}>
                         <ShoppingBag size={18} /> Historial Pedidos
                     </button>
-                    <button className="sidebar-link" onClick={() => { }} style={{ color: '#9ca3af' }}>
+                    <button className="sidebar-link" onClick={() => navigate('/merchant/settings')} style={{ color: '#9ca3af' }}>
                         <Settings size={18} /> Ajustes Local
                     </button>
                 </nav>
@@ -204,6 +218,7 @@ export default function MenuManager() {
                         merchantId={merchantId}
                         editingItem={editingItem}
                         onClose={() => { setIsModalOpen(false); setEditingItem(null); }}
+                        existingCategories={dishCategories}
                     />
                 )}
             </main>

@@ -64,7 +64,7 @@ export default function Wallet() {
                 <button style={{ width: 40, height: 40, borderRadius: 12, border: 'none', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => navigate('/delivery')}>
                     <ArrowLeft size={20} color="#0f172a" />
                 </button>
-                <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0, flex: 1, textAlign: 'center', paddingRight: 40 }}>Mis Ganancias</h1>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0, flex: 1, textAlign: 'center', paddingRight: 40 }}>Mis Finanzas</h1>
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>

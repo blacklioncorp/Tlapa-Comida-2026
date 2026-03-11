@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Eye, EyeOff, LogIn, Mail, Lock } from 'lucide-react';
 
@@ -160,9 +160,9 @@ export default function Login() {
                                 <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155' }}>
                                     Contraseña
                                 </label>
-                                <a href="#" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#ee652b', textDecoration: 'none' }}>
+                                <Link to="/forgot-password" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#ee652b', textDecoration: 'none' }}>
                                     ¿Olvidaste tu contraseña?
-                                </a>
+                                </Link>
                             </div>
                             <div style={{ position: 'relative' }}>
                                 <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
@@ -217,6 +217,13 @@ export default function Login() {
                     <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '0.9rem', color: '#64748b' }}>
                         ¿No tienes una cuenta? <a href="/register" onClick={(e) => { e.preventDefault(); navigate('/register'); }} style={{ color: '#ee652b', fontWeight: 800, textDecoration: 'none' }}>Regístrate</a>
                     </p>
+
+                    <div style={{ marginTop: '16px', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+                        <a href="/register?role=driver" onClick={(e) => { e.preventDefault(); navigate('/register?role=driver'); }}
+                            style={{ color: '#0369a1', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                            🚀 ¿Quieres repartir con nosotros? Regístrate aquí
+                        </a>
+                    </div>
 
 
                 </div>

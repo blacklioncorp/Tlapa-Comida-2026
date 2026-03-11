@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { getCategories, saveCategories } from '../../data/seedData';
+import { supabase } from '../../supabase';
 import {
     BarChart3, Store, Users, ShoppingBag, Settings, LogOut,
     Plus, Trash2, Save, X, DollarSign, LayoutGrid, Gift,
-    Image, Smile, Type, Eye
+    Image as ImageIcon, Smile, Type, Eye, Truck, Menu
 } from 'lucide-react';
+import ImageUpload from '../../components/ImageUpload';
+import AdminSidebar from '../../components/admin/AdminSidebar';
 
 const EMOJI_OPTIONS = [
     '🍕', '🍔', '🌮', '🍣', '🥗', '🍝', '🍰', '🍩',
@@ -17,30 +19,81 @@ const EMOJI_OPTIONS = [
 export default function CategoryManagement() {
     const { logout } = useAuth();
     const navigate = useNavigate();
-    const [categories, setCategories] = useState(() => getCategories());
+    const [categories, setCategories] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [form, setForm] = useState({ name: '', icon: '🍕', image: '' });
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    const handleSave = () => {
-        if (!form.name.trim()) return;
-        const newCat = {
-            ...form,
-            id: `cat-${Date.now()}`,
-            label: form.name,
+    useEffect(() => {
+        let subscription = null;
+
+        const fetchCategories = async () => {
+            try {
+                const { data, error } = await supabase.from('categories').select('*').order('name', { ascending: true });
+                if (error) throw error;
+                setCategories(data || []);
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+            } finally {
+                setLoading(false);
+            }
         };
-        const updated = [...categories, newCat];
-        setCategories(updated);
-        saveCategories(updated);
-        setIsModalOpen(false);
-        setForm({ name: '', icon: '🍕', image: '' });
+
+        const setupRealtime = () => {
+            subscription = supabase.channel('public:categories')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, payload => {
+                    if (payload.eventType === 'INSERT') {
+                        setCategories(current => [...current, payload.new].sort((a, b) => a.name.localeCompare(b.name)));
+                    } else if (payload.eventType === 'UPDATE') {
+                        setCategories(current => current.map(c => c.id === payload.new.id ? payload.new : c));
+                    } else if (payload.eventType === 'DELETE') {
+                        setCategories(current => current.filter(c => c.id !== payload.old.id));
+                    }
+                })
+                .subscribe();
+        };
+
+        fetchCategories();
+        setupRealtime();
+
+        return () => {
+            if (subscription) supabase.removeChannel(subscription);
+        };
+    }, []);
+
+    const handleSave = async () => {
+        if (!form.name.trim()) return;
+        try {
+            const newCat = {
+                id: `cat-${Date.now()}`,
+                name: form.name,
+                label: form.name,
+                icon: form.icon,
+                image: form.image,
+            };
+
+            const { error } = await supabase.from('categories').insert([newCat]);
+            if (error) throw error;
+
+            setIsModalOpen(false);
+            setForm({ name: '', icon: '🍕', image: '' });
+        } catch (error) {
+            console.error('Error saving category:', error);
+            alert('Error al guardar la categoría: ' + error.message);
+        }
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (window.confirm('¿Eliminar esta categoría? Los comercios asociados podrían quedar huérfanos.')) {
-            const updated = categories.filter(c => c.id !== id);
-            setCategories(updated);
-            saveCategories(updated);
+            try {
+                const { error } = await supabase.from('categories').delete().eq('id', id);
+                if (error) throw error;
+            } catch (error) {
+                console.error('Error deleting category:', error);
+                alert('No se pudo eliminar la categoría.');
+            }
         }
     };
 
@@ -52,52 +105,29 @@ export default function CategoryManagement() {
 
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar">
-                <div className="logo">Tlapa <span>Comida</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/admin')}>
-                        <BarChart3 size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/merchants')}>
-                        <Store size={18} /> Comercios
-                    </button>
-                    <button className="sidebar-link active">
-                        <LayoutGrid size={18} /> Categorías
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
-                        <ShoppingBag size={18} /> Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/promotions')}>
-                        <Gift size={18} /> Promociones
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/finance')}>
-                        <DollarSign size={18} /> Finanzas
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/settings')}>
-                        <Settings size={18} /> Ajustes
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <AdminSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
             <main className="admin-main">
-                <header className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Categorías</h1>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginTop: 4 }}>
-                            Gestiona las {categories.length} categorías de comida disponibles en la plataforma.
-                        </p>
+                <header className="admin-header admin-header-responsive" style={{ marginBottom: 32 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Categorías</h1>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginTop: 4 }}>
+                                Gestiona las {categories.length} categorías de comida disponibles en la plataforma.
+                            </p>
+                        </div>
                     </div>
-                    <button className="btn btn-primary" onClick={openModal} style={{ borderRadius: 12 }}>
-                        <Plus size={18} /> Nueva Categoría
-                    </button>
+                    <div className="admin-header-actions">
+                        <button className="btn btn-primary" onClick={openModal} style={{ borderRadius: 12 }}>
+                            <Plus size={18} /> Nueva Categoría
+                        </button>
+                    </div>
                 </header>
 
                 <div className="admin-content">
@@ -401,28 +431,21 @@ export default function CategoryManagement() {
                                 )}
                             </div>
 
-                            {/* Image URL */}
+                            {/* Image Upload */}
                             <div className="form-group" style={{ marginBottom: 0 }}>
                                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <Image size={14} /> URL de Imagen
+                                    <ImageIcon size={14} /> Imagen (Opcional)
                                 </label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    value={form.image}
-                                    onChange={e => setForm({ ...form, image: e.target.value })}
-                                    placeholder="https://ejemplo.com/imagen.jpg"
-                                />
-                                {form.image && (
-                                    <div style={{ marginTop: 8, borderRadius: 8, overflow: 'hidden', height: 80 }}>
-                                        <img
-                                            src={form.image}
-                                            alt="Preview"
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                            onError={e => e.target.style.display = 'none'}
-                                        />
-                                    </div>
-                                )}
+                                <div style={{ marginTop: 8 }}>
+                                    <ImageUpload
+                                        currentImage={form.image}
+                                        onImageChange={(base64) => setForm({ ...form, image: base64 })}
+                                        shape="banner"
+                                        size={120}
+                                        label=""
+                                        id="cat-image"
+                                    />
+                                </div>
                             </div>
                         </div>
 
