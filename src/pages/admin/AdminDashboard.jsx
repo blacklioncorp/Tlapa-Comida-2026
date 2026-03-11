@@ -82,12 +82,12 @@ export default function AdminDashboard() {
 
             {/* Main */}
             <main className="admin-main">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+                <div className="admin-header-responsive" style={{ marginBottom: 32 }}>
                     <div>
                         <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Dashboard</h1>
                         <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Bienvenido al panel de administración</p>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div className="admin-header-actions">
                         {weather && (
                             <div style={{
                                 display: 'flex', alignItems: 'center', gap: 6,
@@ -155,12 +155,12 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Weekly Chart */}
-                <div style={{
+                <div className="dashboard-chart-container" style={{
                     background: 'var(--color-surface)', borderRadius: 16, padding: 24,
                     boxShadow: 'var(--shadow-sm)', marginBottom: 24,
                 }}>
                     <h3 style={{ fontWeight: 700, marginBottom: 24 }}>Ventas de la Semana</h3>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', height: 160, gap: 16 }}>
+                    <div className="dashboard-chart-bars">
                         {weekData.map((val, i) => (
                             <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                                 <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
@@ -186,46 +186,48 @@ export default function AdminDashboard() {
                     <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--color-border-light)' }}>
                         <h3 style={{ fontWeight: 700 }}>Pedidos Recientes</h3>
                     </div>
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>Pedido</th>
-                                <th>Restaurante</th>
-                                <th>Total</th>
-                                <th>Estado</th>
-                                <th>Fecha</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {orders.length === 0 ? (
+                    <div className="table-responsive">
+                        <table className="data-table">
+                            <thead>
                                 <tr>
-                                    <td colSpan="5" style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)' }}>
-                                        No hay pedidos registrados
-                                    </td>
+                                    <th>Pedido</th>
+                                    <th>Restaurante</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th>Fecha</th>
                                 </tr>
-                            ) : (
-                                orders.slice(0, 10).map(order => {
-                                    const merchant = merchants.find(m => m.id === order.merchantId);
-                                    const statusInfo = ORDER_STATUSES[order.status];
-                                    return (
-                                        <tr key={order.id}>
-                                            <td style={{ fontWeight: 700 }}>{order.orderNumber}</td>
-                                            <td>{merchant?.name || '-'}</td>
-                                            <td style={{ fontWeight: 600 }}>${order.totals.total.toFixed(0)}</td>
-                                            <td>
-                                                <span className={`badge badge-${statusInfo?.color || 'primary'}`}>
-                                                    {statusInfo?.label || order.status}
-                                                </span>
-                                            </td>
-                                            <td style={{ color: 'var(--color-text-muted)' }}>
-                                                {new Date(order.createdAt).toLocaleDateString('es-MX')}
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {orders.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" style={{ textAlign: 'center', padding: 32, color: 'var(--color-text-muted)' }}>
+                                            No hay pedidos registrados
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    orders.slice(0, 10).map(order => {
+                                        const merchant = merchants.find(m => m.id === order.merchantId);
+                                        const statusInfo = ORDER_STATUSES[order.status];
+                                        return (
+                                            <tr key={order.id}>
+                                                <td style={{ fontWeight: 700 }}>{order.orderNumber}</td>
+                                                <td>{merchant?.name || '-'}</td>
+                                                <td style={{ fontWeight: 600 }}>${order.totals.total.toFixed(0)}</td>
+                                                <td>
+                                                    <span className={`badge badge-${statusInfo?.color || 'primary'}`}>
+                                                        {statusInfo?.label || order.status}
+                                                    </span>
+                                                </td>
+                                                <td style={{ color: 'var(--color-text-muted)' }}>
+                                                    {new Date(order.createdAt).toLocaleDateString('es-MX')}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </main>
         </div>

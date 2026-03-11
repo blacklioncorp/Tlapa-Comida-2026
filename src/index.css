@@ -1118,6 +1118,54 @@ ol {
 }
 
 /* ═══════════════════════════════════════════════
+   ADMIN RESPONSIVE LAYOUT
+   ═══════════════════════════════════════════════ */
+.admin-header-responsive {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dashboard-chart-container {
+  overflow-x: auto;
+}
+
+.dashboard-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  height: 160px;
+  gap: 16px;
+  min-width: 400px;
+  /* Previene que las barras se aprieten demasiado en móvil */
+}
+
+@media (max-width: 768px) {
+  .admin-header-responsive {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-header-actions {
+    justify-content: flex-start;
+    margin-top: var(--space-sm);
+  }
+}
+
+/* ═══════════════════════════════════════════════
    DRIVER APP SPECIFIC STYLES
    ═══════════════════════════════════════════════ */
 .fullscreen-map-container {
