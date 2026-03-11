@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../supabase';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Save, Bell, Globe, DollarSign, Shield, LayoutGrid, Gift, Truck } from 'lucide-react';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Save, Bell, Globe, DollarSign, Shield, LayoutGrid, Gift, Truck, Menu } from 'lucide-react';
+import AdminSidebar from '../../components/admin/AdminSidebar';
 
 export default function AdminSettings() {
     const { user, logout } = useAuth();
@@ -20,6 +21,7 @@ export default function AdminSettings() {
             return JSON.parse(localStorage.getItem('tlapa_push_history') || '[]');
         } catch { return []; }
     });
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const [settings, setSettings] = useState({
         platformName: 'Tlapa Food',
@@ -133,54 +135,27 @@ export default function AdminSettings() {
 
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar" style={{ background: '#111827' }}>
-                <div className="logo" style={{ color: 'white' }}>Tlapa <span>Comida</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/admin')}>
-                        <BarChart3 size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/merchants')}>
-                        <Store size={18} /> Comercios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/categories')}>
-                        <LayoutGrid size={18} /> Categorías
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
-                        <Truck size={18} /> Repartidores
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
-                        <ShoppingBag size={18} /> Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/promotions')}>
-                        <Gift size={18} /> Promociones
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/finance')}>
-                        <DollarSign size={18} /> Finanzas
-                    </button>
-                    <button className="sidebar-link active">
-                        <Settings size={18} /> Ajustes
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <AdminSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
             <main className="admin-main">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Ajustes de la Plataforma</h1>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Configura los parámetros generales de Tlapa Food</p>
+                <div className="admin-header-responsive" style={{ marginBottom: 32, display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Ajustes de la Plataforma</h1>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Configura los parámetros generales de Tlapa Food</p>
+                        </div>
                     </div>
-                    <button className="btn btn-primary" onClick={handleSave}>
-                        <Save size={16} /> Guardar Cambios
-                    </button>
+                    <div style={{ marginLeft: 'auto' }}>
+                        <button className="btn btn-primary" onClick={handleSave}>
+                            <Save size={16} /> Guardar Cambios
+                        </button>
+                    </div>
                 </div>
 
                 {saved && (

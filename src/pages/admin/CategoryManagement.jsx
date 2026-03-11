@@ -5,9 +5,10 @@ import { supabase } from '../../supabase';
 import {
     BarChart3, Store, Users, ShoppingBag, Settings, LogOut,
     Plus, Trash2, Save, X, DollarSign, LayoutGrid, Gift,
-    Image as ImageIcon, Smile, Type, Eye, Truck
+    Image as ImageIcon, Smile, Type, Eye, Truck, Menu
 } from 'lucide-react';
 import ImageUpload from '../../components/ImageUpload';
+import AdminSidebar from '../../components/admin/AdminSidebar';
 
 const EMOJI_OPTIONS = [
     '🍕', '🍔', '🌮', '🍣', '🥗', '🍝', '🍰', '🍩',
@@ -23,6 +24,7 @@ export default function CategoryManagement() {
     const [form, setForm] = useState({ name: '', icon: '🍕', image: '' });
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
         let subscription = null;
@@ -103,55 +105,29 @@ export default function CategoryManagement() {
 
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar">
-                <div className="logo">Tlapa <span>Comida</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/admin')}>
-                        <BarChart3 size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/merchants')}>
-                        <Store size={18} /> Comercios
-                    </button>
-                    <button className="sidebar-link active">
-                        <LayoutGrid size={18} /> Categorías
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
-                        <Truck size={18} /> Repartidores
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
-                        <ShoppingBag size={18} /> Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/promotions')}>
-                        <Gift size={18} /> Promociones
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/finance')}>
-                        <DollarSign size={18} /> Finanzas
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/settings')}>
-                        <Settings size={18} /> Ajustes
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <AdminSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
             <main className="admin-main">
-                <header className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Categorías</h1>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginTop: 4 }}>
-                            Gestiona las {categories.length} categorías de comida disponibles en la plataforma.
-                        </p>
+                <header className="admin-header admin-header-responsive" style={{ marginBottom: 32 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Categorías</h1>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginTop: 4 }}>
+                                Gestiona las {categories.length} categorías de comida disponibles en la plataforma.
+                            </p>
+                        </div>
                     </div>
-                    <button className="btn btn-primary" onClick={openModal} style={{ borderRadius: 12 }}>
-                        <Plus size={18} /> Nueva Categoría
-                    </button>
+                    <div className="admin-header-actions">
+                        <button className="btn btn-primary" onClick={openModal} style={{ borderRadius: 12 }}>
+                            <Plus size={18} /> Nueva Categoría
+                        </button>
+                    </div>
                 </header>
 
                 <div className="admin-content">

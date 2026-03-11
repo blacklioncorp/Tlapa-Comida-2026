@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Shield, ShieldCheck, Ban, FileText, Star, X, Phone, Camera, Plus, Key, Bike, Truck, DollarSign, LayoutGrid, Gift, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Shield, ShieldCheck, Ban, FileText, Star, X, Phone, Camera, Plus, Key, Bike, Truck, DollarSign, LayoutGrid, Gift, AlertTriangle, AlertCircle, CheckCircle2, Menu } from 'lucide-react';
 import { supabase } from '../../supabase';
 import AdvancedLocationPicker from '../../components/AdvancedLocationPicker';
+import AdminSidebar from '../../components/admin/AdminSidebar';
 
 const VEHICLE_BRANDS = [
     'Honda', 'Yamaha', 'Suzuki', 'Italika', 'Bajaj', 'Vento', 'KTM', 'TVS',
@@ -24,6 +25,7 @@ export default function UserManagement() {
     const [searchTerm, setSearchTerm] = useState('');
     const [clients, setClients] = useState([]);
     const [drivers, setDrivers] = useState([]);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // Drawer State
     const [selectedDriver, setSelectedDriver] = useState(null);
@@ -176,51 +178,28 @@ export default function UserManagement() {
 
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar">
-                <div className="logo">Tlapa <span>Comida</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/admin')}>
-                        <BarChart3 size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/merchants')}>
-                        <Store size={18} /> Comercios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/categories')}>
-                        <LayoutGrid size={18} /> Categorías
-                    </button>
-                    <button className="sidebar-link active">
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
-                        <ShoppingBag size={18} /> Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/promotions')}>
-                        <Gift size={18} /> Promociones
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/finance')}>
-                        <DollarSign size={18} /> Finanzas
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/settings')}>
-                        <Settings size={18} /> Ajustes
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <AdminSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
             <main className="admin-main">
-                <header className="admin-header">
-                    <div>
-                        <h1>Gestión de Usuarios</h1>
-                        <p>Control de clientes, flota de repartidores y exclusividad.</p>
+                <header className="admin-header admin-header-responsive">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1>Gestión de Usuarios</h1>
+                            <p>Control de clientes, flota de repartidores y exclusividad.</p>
+                        </div>
                     </div>
                     {activeTab === 'drivers' && (
-                        <button className="btn btn-primary" onClick={() => setIsAddDriverOpen(true)}>
-                            <Plus size={18} /> Nuevo Repartidor
-                        </button>
+                        <div className="admin-header-actions">
+                            <button className="btn btn-primary" onClick={() => setIsAddDriverOpen(true)}>
+                                <Plus size={18} /> Nuevo Repartidor
+                            </button>
+                        </div>
                     )}
                 </header>
 

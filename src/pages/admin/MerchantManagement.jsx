@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getCategories } from '../../data/seedData';
 import { supabase } from '../../supabase';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Star, Edit2, Trash2, X, Save, Camera, Key, DollarSign, LayoutGrid, Gift, Truck, Unlock } from 'lucide-react';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Star, Edit2, Trash2, X, Save, Camera, Key, DollarSign, LayoutGrid, Gift, Truck, Unlock, Menu } from 'lucide-react';
 import ImageUpload from '../../components/ImageUpload';
 import AdvancedLocationPicker from '../../components/AdvancedLocationPicker';
+import AdminSidebar from '../../components/admin/AdminSidebar';
 
 export default function MerchantManagement() {
     const { logout } = useAuth();
@@ -16,6 +17,7 @@ export default function MerchantManagement() {
     const [showAddressPicker, setShowAddressPicker] = useState(false);
     const [editingMerchant, setEditingMerchant] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const categories = getCategories();
 
@@ -168,54 +170,27 @@ export default function MerchantManagement() {
 
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar">
-                <div className="logo">Tlapa <span>Comida</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/admin')}>
-                        <BarChart3 size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link active">
-                        <Store size={18} /> Comercios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/categories')}>
-                        <LayoutGrid size={18} /> Categorías
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
-                        <Truck size={18} /> Repartidores
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
-                        <ShoppingBag size={18} /> Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/promotions')}>
-                        <Gift size={18} /> Promociones
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/finance')}>
-                        <DollarSign size={18} /> Finanzas
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/settings')}>
-                        <Settings size={18} /> Ajustes
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <AdminSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
             <main className="admin-main">
-                <header className="admin-header">
-                    <div>
-                        <h1>Gestión de Comercios</h1>
-                        <p>Añade, edita y gestiona los restaurantes de la plataforma.</p>
+                <header className="admin-header admin-header-responsive">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1>Gestión de Comercios</h1>
+                            <p>Añade, edita y gestiona los restaurantes de la plataforma.</p>
+                        </div>
                     </div>
-                    <button className="btn btn-primary" onClick={openCreateModal}>
-                        <Store size={18} /> Nuevo Comercio
-                    </button>
+                    <div className="admin-header-actions">
+                        <button className="btn btn-primary" onClick={openCreateModal}>
+                            <Store size={18} /> Nuevo Comercio
+                        </button>
+                    </div>
                 </header>
 
                 <div className="admin-content">

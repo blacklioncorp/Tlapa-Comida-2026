@@ -7,8 +7,10 @@ import {
     BarChart3, Store, Users, ShoppingBag, Settings, LogOut, DollarSign, LayoutGrid,
     Tag, Plus, Search, Edit3, Trash2, Copy, ToggleLeft, ToggleRight,
     Calendar, UserCheck, Clock, ShieldCheck, Percent, CreditCard, X, Save,
-    Gift, TrendingUp, AlertCircle, ChevronDown, ChevronUp, Eye, EyeOff, Filter
-, Truck } from 'lucide-react';
+    Gift, TrendingUp, AlertCircle, ChevronDown, ChevronUp, Eye, EyeOff, Filter,
+    Truck, Menu
+} from 'lucide-react';
+import AdminSidebar from '../../components/admin/AdminSidebar';
 
 const DISCOUNT_TYPE_LABELS = {
     percentage: { label: 'Porcentaje', icon: '🏷️', suffix: '%' },
@@ -488,6 +490,7 @@ export default function AdminPromotions() {
     const [editingPromo, setEditingPromo] = useState(null);
     const [showForm, setShowForm] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const stats = getStats();
 
@@ -528,59 +531,32 @@ export default function AdminPromotions() {
     return (
         <div className="admin-layout">
             {/* Sidebar */}
-            <aside className="admin-sidebar">
-                <div className="logo">Tlapa <span>Comida</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/admin')}>
-                        <BarChart3 size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/merchants')}>
-                        <Store size={18} /> Comercios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/categories')}>
-                        <LayoutGrid size={18} /> Categorías
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
-                        <Truck size={18} /> Repartidores
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
-                        <ShoppingBag size={18} /> Pedidos
-                    </button>
-                    <button className="sidebar-link active">
-                        <Gift size={18} /> Promociones
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/finance')}>
-                        <DollarSign size={18} /> Finanzas
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/settings')}>
-                        <Settings size={18} /> Ajustes
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <AdminSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
             {/* Main */}
             <main className="admin-main">
                 {/* Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>🎁 Promociones y Cupones</h1>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-                            Administra descuentos, condiciones y vigencia
-                        </p>
+                <div className="admin-header-responsive" style={{ marginBottom: 28, display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>🎁 Promociones y Cupones</h1>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+                                Administra descuentos, condiciones y vigencia
+                            </p>
+                        </div>
                     </div>
-                    <button className="btn btn-primary" onClick={() => { setEditingPromo(null); setShowForm(true); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', fontWeight: 700 }}>
-                        <Plus size={18} /> Nueva Promoción
-                    </button>
+                    <div className="admin-header-actions" style={{ marginLeft: 'auto' }}>
+                        <button className="btn btn-primary" onClick={() => { setEditingPromo(null); setShowForm(true); }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', fontWeight: 700 }}>
+                            <Plus size={18} /> Nueva Promoción
+                        </button>
+                    </div>
                 </div>
 
                 {/* KPIs */}

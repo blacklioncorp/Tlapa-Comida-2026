@@ -5,7 +5,8 @@ import { useSmartDelivery } from '../../contexts/SmartDeliveryContext';
 import { useState, useEffect } from 'react';
 import { ORDER_STATUSES } from '../../data/seedData';
 import { supabase } from '../../supabase';
-import { BarChart3, ShoppingBag, Store, Truck, Users, Settings, LogOut, TrendingUp, DollarSign, LayoutGrid, CloudRain, AlertTriangle, Gift } from 'lucide-react';
+import { BarChart3, ShoppingBag, Store, Truck, Users, Settings, LogOut, TrendingUp, DollarSign, LayoutGrid, CloudRain, AlertTriangle, Gift, Menu } from 'lucide-react';
+import AdminSidebar from '../../components/admin/AdminSidebar';
 
 export default function AdminDashboard() {
     const { logout } = useAuth();
@@ -13,6 +14,7 @@ export default function AdminDashboard() {
     const { weather, isRaining, getOverloadedMerchants } = useSmartDelivery();
     const navigate = useNavigate();
     const overloaded = getOverloadedMerchants();
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const totalSales = orders.filter(o => o.status === 'delivered')
         .reduce((sum, o) => sum + o.totals.total, 0);
@@ -40,52 +42,22 @@ export default function AdminDashboard() {
 
     return (
         <div className="admin-layout">
-            {/* Sidebar */}
-            <aside className="admin-sidebar">
-                <div className="logo">Tlapa <span>Comida</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link active">
-                        <BarChart3 size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/merchants')}>
-                        <Store size={18} /> Comercios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/categories')}>
-                        <LayoutGrid size={18} /> Categorías
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/users')}>
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/delivery')}>
-                        <Truck size={18} /> Repartidores
-                        <Users size={18} /> Usuarios
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/orders')}>
-                        <ShoppingBag size={18} /> Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/promotions')}>
-                        <Gift size={18} /> Promociones
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/finance')}>
-                        <DollarSign size={18} /> Finanzas
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/admin/settings')}>
-                        <Settings size={18} /> Ajustes
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <AdminSidebar
+                isOpen={isSidebarOpen}
+                onClose={() => setIsSidebarOpen(false)}
+            />
 
             {/* Main */}
             <main className="admin-main">
                 <div className="admin-header-responsive" style={{ marginBottom: 32 }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Dashboard</h1>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Bienvenido al panel de administración</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Dashboard</h1>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Bienvenido al panel de administración</p>
+                        </div>
                     </div>
                     <div className="admin-header-actions">
                         {weather && (
