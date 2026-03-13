@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../contexts/OrderContext';
 import { ORDER_STATUSES } from '../../data/seedData';
+import MerchantSidebar from '../../components/merchant/MerchantSidebar';
 import {
-    LayoutDashboard, UtensilsCrossed, ShoppingBag, Settings,
-    LogOut, Search, Calendar, Filter, Star, ArrowLeft
+    Search, Star, Menu
 } from 'lucide-react';
 
 export default function MerchantOrderHistory() {
@@ -14,7 +14,8 @@ export default function MerchantOrderHistory() {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [dateRange, setDateRange] = useState('all'); // all, today, week, month
+    const [dateRange, setDateRange] = useState('all');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const merchantOrders = useMemo(() => {
         return orders
@@ -53,40 +54,24 @@ export default function MerchantOrderHistory() {
 
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar" style={{ background: '#111827' }}>
-                <div className="logo" style={{ color: 'white' }}>Tlapa <span>Commercio</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/merchant')} style={{ color: '#9ca3af' }}>
-                        <LayoutDashboard size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/merchant/menu')} style={{ color: '#9ca3af' }}>
-                        <UtensilsCrossed size={18} /> Menú / Platillos
-                    </button>
-                    <button className="sidebar-link active" style={{ color: 'white' }}>
-                        <ShoppingBag size={18} /> Historial Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/merchant/settings')} style={{ color: '#9ca3af' }}>
-                        <Settings size={18} /> Ajustes Local
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout} style={{ color: '#ef4444' }}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <MerchantSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
             <main className="admin-main">
-                <header className="admin-header">
-                    <div>
-                        <h1>Historial de Pedidos</h1>
-                        <p>Todos los pedidos de tu comercio.</p>
+                <header className="admin-header responsive-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1>Historial de Pedidos</h1>
+                            <p>Todos los pedidos de tu comercio.</p>
+                        </div>
                     </div>
                 </header>
 
                 <div className="admin-content">
                     {/* Summary Cards */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 16, marginBottom: 24 }}>
                         <div className="card" style={{ textAlign: 'center' }}>
                             <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: 4 }}>Total pedidos</p>
                             <h3 style={{ fontSize: '1.5rem', fontWeight: 800 }}>{filteredOrders.length}</h3>

@@ -1,61 +1,76 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../contexts/OrderContext';
-import { ArrowLeft, TrendingUp, Calendar, Clock, ChevronRight, DollarSign, Wallet as WalletIcon, CheckCircle } from 'lucide-react';
+import { supabase } from '../../supabase';
+import { ArrowLeft, TrendingUp, Calendar, Clock, ChevronRight, DollarSign, Wallet as WalletIcon, CheckCircle, PlusCircle, MinusCircle } from 'lucide-react';
 
 export default function Wallet() {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { orders } = useOrders();
     const [activeTab, setActiveTab] = useState('Semana');
     const [showWithdrawModal, setShowWithdrawModal] = useState(false);
     const [isWithdrawing, setIsWithdrawing] = useState(false);
+    const [transactions, setTransactions] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const myDeliveries = orders.filter(o => o.driverId === user.id && o.status === 'delivered');
+    const balance = user?.walletBalance || 0;
 
-    let saldoFavor = 0;
-    let deudaEfectivo = 0;
-
-    myDeliveries.forEach(o => {
-        const fee = o.totals.deliveryFee || 0;
-        const total = o.totals.total || 0;
-
-        if (o.payment?.method === 'cash') {
-            deudaEfectivo += (total - fee);
-        } else {
-            saldoFavor += fee;
-        }
-    });
-
-    const netBalance = saldoFavor - deudaEfectivo;
-    const withdrawable = netBalance > 0 ? netBalance : 0;
+    useEffect(() => {
+        if (!user) return;
+        
+        const fetchTransactions = async () => {
+            setIsLoading(true);
+            const { data, error } = await supabase
+                .from('wallet_transactions')
+                .select('*')
+                .eq('driverId', user.id)
+                .order('createdAt', { ascending: false })
+                .limit(50);
+                
+            if (!error && data) {
+                setTransactions(data);
+            }
+            setIsLoading(false);
+        };
+        
+        fetchTransactions();
+        
+        const sub = supabase.channel(`public:wallet_transactions:${user.id}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wallet_transactions', filter: `driverId=eq.${user.id}` }, payload => {
+                setTransactions(prev => [payload.new, ...prev]);
+            })
+            .subscribe();
+            
+        return () => supabase.removeChannel(sub);
+    }, [user]);
 
     const handleWithdraw = () => {
         setIsWithdrawing(true);
         setTimeout(() => {
             setIsWithdrawing(false);
             setShowWithdrawModal(false);
-            alert(`¡Retiro de $${withdrawable.toFixed(2)} procesado exitosamente!`);
+            alert(`¡Retiro en desarrollo. Actualmente en modo manual.`);
         }, 1500);
     };
 
-    // Generate weekly data for the chart
-    const days = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-    const weekData = useMemo(() => days.map((day, idx) => ({
-        day,
-        amount: Math.round(idx === 6 ? 0 : Math.random() * 300 + 100), // dummy data
-        isActive: idx === new Date().getDay() - 1 // approximate current day
-    })), []);
-    const maxAmount = Math.max(...weekData.map(d => d.amount), 500); // 500 fallback
+    // Formatear fecha
+    const formatDate = (dateString) => {
+        const d = new Date(dateString);
+        return d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'short' });
+    };
 
-    // Group deliveries by approximate day for the list
-    const recentActivity = [
-        { date: 'Jueves 20, Ago', deliveries: 12, amount: 450.00 },
-        { date: 'Miércoles 19, Ago', deliveries: 15, amount: 650.00 },
-        { date: 'Martes 18, Ago', deliveries: 8, amount: 280.00 },
-        { date: 'Lunes 17, Ago', deliveries: 18, amount: 820.00 },
-    ];
+    // Calculate weekly data roughly (past 7 days)
+    const weekData = useMemo(() => {
+        const days = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+        // This is a simple visual mockup for the chart
+        return days.map((day, idx) => ({
+            day,
+            amount: Math.round(idx === 6 ? 0 : Math.random() * 300 + 100), 
+            isActive: idx === new Date().getDay() - 1
+        }));
+    }, []);
+    const maxAmount = Math.max(...weekData.map(d => d.amount), 500);
 
     return (
         <div className="app-container" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8fafc' }}>
@@ -71,24 +86,23 @@ export default function Wallet() {
                 {/* Main Balance Card */}
                 <div style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderRadius: 24, padding: 24, color: 'white', marginBottom: 24, boxShadow: '0 10px 25px rgba(16,185,129,0.3)', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', right: -20, top: -20, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-                    <p style={{ fontSize: '0.9rem', fontWeight: 600, opacity: 0.9, marginBottom: 8 }}>Esta Semana</p>
-                    <h2 style={{ fontSize: '2.5rem', fontWeight: 800, margin: '0 0 16px', letterSpacing: '-0.02em' }}>${withdrawable.toFixed(2)}</h2>
+                    <p style={{ fontSize: '0.9rem', fontWeight: 600, opacity: 0.9, marginBottom: 8 }}>Mi Monedero</p>
+                    <h2 style={{ fontSize: '2.5rem', fontWeight: 800, margin: '0 0 16px', letterSpacing: '-0.02em' }}>${balance.toFixed(2)}</h2>
                     <div style={{ background: 'rgba(255,255,255,0.2)', padding: '8px 12px', borderRadius: 12, display: 'inline-flex', alignItems: 'center', gap: 8, backdropFilter: 'blur(4px)' }}>
-                        <Calendar size={14} />
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Próximo depósito: Lunes 24</span>
+                        <WalletIcon size={14} />
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>Saldo para comisiones</span>
                     </div>
                 </div>
 
-                {/* Deuda Efectivo banner (if negative) */}
-                {netBalance < 0 && (
+                {/* Warning if balance is too low */}
+                {balance < 15 && (
                     <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 16, padding: '16px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{ background: '#ef4444', width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <DollarSign size={20} color="white" />
                         </div>
                         <div>
-                            <p style={{ margin: 0, fontSize: '0.85rem', color: '#991b1b', fontWeight: 700 }}>Deuda por Efectivo</p>
-                            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#7f1d1d' }}>${Math.abs(netBalance).toFixed(2)}</h3>
-                            <p style={{ margin: 0, fontSize: '0.75rem', color: '#b91c1c' }}>Paga en OXXO para evitar bloqueo.</p>
+                            <p style={{ margin: 0, fontSize: '0.85rem', color: '#991b1b', fontWeight: 700 }}>Saldo Bajo</p>
+                            <p style={{ margin: 0, fontSize: '0.75rem', color: '#b91c1c' }}>Recarga tu monedero para seguir aceptando pedidos.</p>
                         </div>
                     </div>
                 )}
@@ -108,7 +122,7 @@ export default function Wallet() {
                 </div>
 
                 {/* Chart */}
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginBottom: 16 }}>Resumen de la semana</h3>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginBottom: 16 }}>Resumen de actividad</h3>
                 <div style={{ background: 'white', borderRadius: 20, padding: '24px 16px', border: '1px solid #f1f5f9', marginBottom: 24 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', height: 140, gap: 8 }}>
                         {weekData.map((d, i) => (
@@ -128,25 +142,37 @@ export default function Wallet() {
                 </div>
 
                 {/* List */}
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginBottom: 16 }}>Actividad Reciente</h3>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', marginBottom: 16 }}>Movimientos Recientes</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 80 }}>
-                    {recentActivity.map((item, idx) => (
-                        <div key={idx} style={{ background: 'white', border: '1px solid #f1f5f9', borderRadius: 16, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <div style={{ background: '#f8fafc', width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Clock size={20} color="#94a3b8" />
+                    {isLoading ? (
+                        <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>Cargando transacciones...</div>
+                    ) : transactions.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>No hay movimientos en tu monedero</div>
+                    ) : (
+                        transactions.map((item) => (
+                            <div key={item.id} style={{ background: 'white', border: '1px solid #f1f5f9', borderRadius: 16, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <div style={{ 
+                                        background: item.amount > 0 ? '#ecfdf5' : '#fef2f2', 
+                                        width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                                    }}>
+                                        {item.amount > 0 ? <PlusCircle size={20} color="#10b981" /> : <MinusCircle size={20} color="#ef4444" />}
+                                    </div>
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>
+                                            {item.type === 'topup' ? 'Recarga' : item.type === 'commission_deduction' ? 'Comisión' : 'Retiro'}
+                                        </h4>
+                                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>{formatDate(item.createdAt)}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#0f172a' }}>{item.date}</h4>
-                                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>{item.deliveries} entregas</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <span style={{ fontWeight: 800, color: item.amount > 0 ? '#10b981' : '#ef4444', fontSize: '1.1rem' }}>
+                                        {item.amount > 0 ? '+' : ''}{Number(item.amount).toFixed(2)}
+                                    </span>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <span style={{ fontWeight: 800, color: '#10b981', fontSize: '1.1rem' }}>${item.amount.toFixed(2)}</span>
-                                <ChevronRight size={16} color="#cbd5e1" />
-                            </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             </div>
 

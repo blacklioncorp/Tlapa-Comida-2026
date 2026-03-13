@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../supabase';
+import MerchantSidebar from '../../components/merchant/MerchantSidebar';
 import {
-    LayoutDashboard, UtensilsCrossed, ShoppingBag, Settings,
-    LogOut, Save, Store, Clock, MapPin, Camera, AlertOctagon
+    Settings, Save, Store, Clock, ShoppingBag, AlertOctagon, Star, Menu
 } from 'lucide-react';
 
 const DAYS_OF_WEEK = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -24,6 +24,7 @@ export default function MerchantSettings() {
     const navigate = useNavigate();
     const [saved, setSaved] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // Password state
     const [newPassword, setNewPassword] = useState('');
@@ -204,34 +205,18 @@ export default function MerchantSettings() {
 
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar" style={{ background: '#111827' }}>
-                <div className="logo" style={{ color: 'white' }}>Tlapa <span>Commercio</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link" onClick={() => navigate('/merchant')} style={{ color: '#9ca3af' }}>
-                        <LayoutDashboard size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/merchant/menu')} style={{ color: '#9ca3af' }}>
-                        <UtensilsCrossed size={18} /> Menú / Platillos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/merchant/orders')} style={{ color: '#9ca3af' }}>
-                        <ShoppingBag size={18} /> Historial Pedidos
-                    </button>
-                    <button className="sidebar-link active" style={{ color: 'white' }}>
-                        <Settings size={18} /> Ajustes Local
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout} style={{ color: '#ef4444' }}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <MerchantSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
             <main className="admin-main">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-                    <div>
-                        <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Ajustes del Local</h1>
-                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Configura horarios y disponibilidad (Sincronizado con Firebase)</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, flexWrap: 'wrap', gap: 12, padding: '24px 24px 0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)} style={{ position: 'static', transform: 'none' }}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Ajustes del Local</h1>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Configura horarios y disponibilidad</p>
+                        </div>
                     </div>
                     <div style={{ display: 'flex', gap: 12 }}>
                         {form.isOpen && (

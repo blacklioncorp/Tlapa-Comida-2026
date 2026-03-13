@@ -16,6 +16,11 @@ export default function DeliveryManagement() {
     const [drivers, setDrivers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    
+    // Top-up modal state
+    const [selectedDriverForTopup, setSelectedDriverForTopup] = useState(null);
+    const [topupAmount, setTopupAmount] = useState('');
+    const [isProcessingTopup, setIsProcessingTopup] = useState(false);
 
     // Initial load and Realtime sync
     useEffect(() => {
@@ -46,6 +51,34 @@ export default function DeliveryManagement() {
             if (subscription) supabase.removeChannel(subscription);
         };
     }, []);
+
+    const handleTopup = async () => {
+        const amount = parseFloat(topupAmount);
+        if (isNaN(amount) || amount <= 0) {
+            alert("Por favor ingresa un monto válido mayor a 0.");
+            return;
+        }
+
+        setIsProcessingTopup(true);
+        try {
+            const { data, error } = await supabase.rpc('admin_topup_wallet', {
+                p_driver_id: selectedDriverForTopup.id,
+                p_amount: amount,
+                p_admin_id: user?.id || null // Pass admin ID if available
+            });
+
+            if (error) throw error;
+            
+            alert(`Recarga de $${amount.toFixed(2)} exitosa.`);
+            setSelectedDriverForTopup(null);
+            setTopupAmount('');
+        } catch (error) {
+            console.error("Error topping up wallet:", error);
+            alert("Error al intentar recargar el monedero: " + error.message);
+        } finally {
+            setIsProcessingTopup(false);
+        }
+    };
 
     // Active deliveries
     const activeDeliveries = orders.filter(o => ['assigned_to_driver', 'picked_up', 'on_the_way'].includes(o.status));
@@ -205,14 +238,21 @@ export default function DeliveryManagement() {
                                                 )}
                                             </td>
                                             <td style={{ fontWeight: 600 }}>{stats.todayDeliveries} viajes</td>
+                                            <td style={{ fontWeight: 800 }}>
+                                                ${(driver.walletBalance || 0).toFixed(2)}
+                                            </td>
                                             <td style={{ fontWeight: 800, color: stats.deudaEfectivo > 0 ? 'var(--color-error)' : 'inherit' }}>
                                                 ${stats.deudaEfectivo.toFixed(2)}
                                             </td>
-                                            <td style={{ fontWeight: 800, color: 'var(--color-success)' }}>
-                                                ${stats.saldoFavor.toFixed(2)}
-                                            </td>
                                             <td>
                                                 <div style={{ display: 'flex', gap: 8 }}>
+                                                    <button
+                                                        className="btn btn-success"
+                                                        style={{ padding: '6px 12px', fontSize: '0.8rem', background: '#10b981', color: 'white', border: 'none' }}
+                                                        onClick={() => setSelectedDriverForTopup(driver)}
+                                                    >
+                                                        Recargar
+                                                    </button>
                                                     {stats.deudaEfectivo > 0 && (
                                                         <button
                                                             className="btn btn-primary"
@@ -222,9 +262,6 @@ export default function DeliveryManagement() {
                                                             Liquidar
                                                         </button>
                                                     )}
-                                                    <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                                                        Perfil
-                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -235,6 +272,54 @@ export default function DeliveryManagement() {
                     </table>
                 </div>
             </main>
+
+            {/* Topup Modal */}
+            {selectedDriverForTopup && (
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                    <div style={{ background: 'white', padding: 24, borderRadius: 16, width: '100%', maxWidth: 400, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+                        <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 16 }}>
+                            Recargar Monedero
+                        </h2>
+                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: 20 }}>
+                            Agrega saldo al monedero de <strong>{selectedDriverForTopup.displayName || selectedDriverForTopup.name}</strong> para el cobro automático de comisiones.
+                        </p>
+                        <div className="form-group" style={{ marginBottom: 24 }}>
+                            <label className="form-label">Monto a recargar ($)</label>
+                            <input
+                                type="number"
+                                className="form-input"
+                                value={topupAmount}
+                                onChange={(e) => setTopupAmount(e.target.value)}
+                                placeholder="Ej: 200"
+                                autoFocus
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+                            <button
+                                className="btn btn-secondary"
+                                onClick={() => {
+                                    setSelectedDriverForTopup(null);
+                                    setTopupAmount('');
+                                }}
+                                disabled={isProcessingTopup}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                className="btn"
+                                style={{ background: '#10b981', color: 'white', border: 'none' }}
+                                onClick={handleTopup}
+                                disabled={isProcessingTopup || !topupAmount || topupAmount <= 0}
+                            >
+                                {isProcessingTopup ? 'Procesando...' : 'Confirmar Recarga'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

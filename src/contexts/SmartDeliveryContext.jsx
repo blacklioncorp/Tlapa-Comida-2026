@@ -38,6 +38,7 @@ export function SmartDeliveryProvider({ children }) {
     const [weatherLoading, setWeatherLoading] = useState(true);
     const [platformSettings, setPlatformSettings] = useState(null);
     const [merchantsLoad, setMerchantsLoad] = useState([]);
+    const [isOnline, setIsOnline] = useState(false);
     const intervalRef = useRef(null);
     const settingsIntervalRef = useRef(null);
 
@@ -150,6 +151,10 @@ export function SmartDeliveryProvider({ children }) {
 
             // Pricing
             getDynamicPricing,
+
+            // Driver online status
+            isOnline,
+            setIsOnline,
 
             // Order priority
             getPrioritizedOrders,

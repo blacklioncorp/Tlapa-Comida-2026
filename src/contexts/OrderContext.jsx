@@ -265,48 +265,86 @@ export function OrderProvider({ children }) {
     };
 
     // ═══════════════════════════════════════════════
-    // Accept Order (Concurrency Security via Optimized Update)
+    // Accept Order (Wallet deduction for cash orders)
     // ═══════════════════════════════════════════════
     const acceptOrder = async (orderId, driverId) => {
         try {
-            // Lock optimism: we update only if status is searching_driver and driverId is null
-            const now = new Date().toISOString();
-
-            // First get the latest state of the order to access its history
             const order = orders.find(o => o.id === orderId);
             if (!order) throw new Error("Pedido no encontrado localmente.");
 
-            const history = [...(order.statusHistory || [])];
-            history.push({
-                status: 'assigned_to_driver',
-                timestamp: now,
-                actor: driverId
-            });
+            const isCashOrder = order.payment?.method === 'cash';
 
-            const mergedTimestamps = { ...(order.timestamps || {}), assignedToDriverAt: now };
+            if (isCashOrder) {
+                // ── CASH ORDER: call RPC to atomically deduct commission + assign driver ──
+                // Fetch current platform commission % from settings
+                let commissionPct = 15; // default fallback
+                try {
+                    const { data: settings } = await supabase
+                        .from('platform_settings')
+                        .select('value')
+                        .eq('key', 'default_commission_pct')
+                        .single();
+                    if (settings?.value) commissionPct = parseFloat(settings.value);
+                } catch (e) {
+                    // Also try the nested settings format
+                    try {
+                        const { data: cfg } = await supabase
+                            .from('platform_settings')
+                            .select('*')
+                            .limit(1)
+                            .single();
+                        if (cfg?.fees?.defaultCommission) {
+                            commissionPct = parseFloat(cfg.fees.defaultCommission);
+                        }
+                    } catch (_) { /* use default */ }
+                }
 
-            // Ejecutamos el update condicional en Supabase para evitar carrera de datos
-            const { data, error } = await supabase.from('orders').update({
-                driverId: driverId,
-                status: 'assigned_to_driver',
-                updatedAt: now,
-                statusHistory: history,
-                timestamps: mergedTimestamps
-            })
-                .eq('id', orderId)
-                .eq('status', 'searching_driver')
-                .is('driverId', null)
-                .select();
+                const subtotal = order.totals?.subtotal || 0;
 
-            if (error) throw error;
-            if (!data || data.length === 0) {
-                throw new Error("Este pedido ya fue tomado por otro repartidor.");
+                const { data: rpcResult, error: rpcError } = await supabase.rpc(
+                    'accept_order_deduct_wallet',
+                    {
+                        p_driver_id: driverId,
+                        p_order_id: orderId,
+                        p_subtotal: subtotal,
+                        p_commission_pct: commissionPct,
+                    }
+                );
+
+                if (rpcError) throw new Error(rpcError.message);
+                if (!rpcResult?.success) throw new Error("No se pudo procesar el monedero del repartidor.");
+
+                console.log(`✅ Pedido aceptado. Comisión descontada: $${rpcResult.commission_charged}. Saldo nuevo: $${rpcResult.new_balance}`);
+
+            } else {
+                // ── DIGITAL PAYMENT: standard atomic update (no wallet deduction needed) ──
+                const now = new Date().toISOString();
+                const history = [...(order.statusHistory || [])];
+                history.push({ status: 'assigned_to_driver', timestamp: now, actor: driverId });
+                const mergedTimestamps = { ...(order.timestamps || {}), assignedToDriverAt: now };
+
+                const { data, error } = await supabase.from('orders').update({
+                    driverId: driverId,
+                    status: 'assigned_to_driver',
+                    updatedAt: now,
+                    statusHistory: history,
+                    timestamps: mergedTimestamps,
+                })
+                    .eq('id', orderId)
+                    .eq('status', 'searching_driver')
+                    .is('driverId', null)
+                    .select();
+
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    throw new Error("Este pedido ya fue tomado por otro repartidor.");
+                }
             }
 
-            console.log("¡Pedido aceptado exitosamente con seguridad condicional!");
+            console.log("¡Pedido aceptado exitosamente!");
         } catch (error) {
             console.error("Error al aceptar pedido: ", error);
-            throw error; // Lanzamos al frontend para mostrar la alerta
+            throw error;
         }
     };
 

@@ -4,11 +4,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../contexts/OrderContext';
 import { ORDER_STATUSES } from '../../data/seedData';
 import { supabase } from '../../supabase';
+import MerchantSidebar from '../../components/merchant/MerchantSidebar';
 import {
     LayoutDashboard, UtensilsCrossed, Clock, CheckCircle2,
     ArrowRight, Star, TrendingUp, DollarSign, LogOut,
     Settings, ShoppingBag, Bell, AlertCircle, Power, Volume2, VolumeX,
-    ChevronRight, Package, MapPin, Phone
+    ChevronRight, Package, MapPin, Phone, Menu
 } from 'lucide-react';
 
 // New order notification sound (we create a simple beep)
@@ -44,6 +45,7 @@ export default function MerchantDashboard() {
     const [merchantData, setMerchantData] = useState(null);
     const [isOpen, setIsOpen] = useState(true);
     const [processingId, setProcessingId] = useState(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
         const fetchMerchant = async () => {
@@ -288,42 +290,26 @@ export default function MerchantDashboard() {
 
     return (
         <div className="admin-layout">
-            <aside className="admin-sidebar" style={{ background: '#111827' }}>
-                <div className="logo" style={{ color: 'white' }}>Tlapa <span>Comercio</span></div>
-                <nav className="sidebar-nav">
-                    <button className="sidebar-link active" style={{ color: 'white' }}>
-                        <LayoutDashboard size={18} /> Dashboard
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/merchant/menu')} style={{ color: '#9ca3af' }}>
-                        <UtensilsCrossed size={18} /> Menú / Platillos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/merchant/orders')} style={{ color: '#9ca3af' }}>
-                        <ShoppingBag size={18} /> Historial Pedidos
-                    </button>
-                    <button className="sidebar-link" onClick={() => navigate('/merchant/settings')} style={{ color: '#9ca3af' }}>
-                        <Settings size={18} /> Ajustes Local
-                    </button>
-                </nav>
-                <div style={{ marginTop: 'auto' }}>
-                    <button className="sidebar-link" onClick={logout} style={{ color: '#ef4444' }}>
-                        <LogOut size={18} /> Cerrar sesión
-                    </button>
-                </div>
-            </aside>
+            <MerchantSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
             <main className="admin-main">
-                <header className="admin-header">
-                    <div>
-                        <h1>Panel de {merchantData?.name || 'Comercio'}</h1>
-                        <p>
-                            {newOrders.length > 0 ? (
-                                <span style={{ color: '#16a34a', fontWeight: 700 }}>
-                                    🔔 {newOrders.length} pedido{newOrders.length !== 1 ? 's' : ''} nuevo{newOrders.length !== 1 ? 's' : ''} esperando
-                                </span>
-                            ) : (
-                                `${activeOrders.length} pedido${activeOrders.length !== 1 ? 's' : ''} activo${activeOrders.length !== 1 ? 's' : ''}`
-                            )}
-                        </p>
+                <header className="admin-header responsive-header" style={{ flexWrap: 'wrap', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
+                            <Menu size={24} />
+                        </button>
+                        <div>
+                            <h1>Panel de {merchantData?.name || 'Comercio'}</h1>
+                            <p>
+                                {newOrders.length > 0 ? (
+                                    <span style={{ color: '#16a34a', fontWeight: 700 }}>
+                                        🔔 {newOrders.length} pedido{newOrders.length !== 1 ? 's' : ''} nuevo{newOrders.length !== 1 ? 's' : ''} esperando
+                                    </span>
+                                ) : (
+                                    `${activeOrders.length} pedido${activeOrders.length !== 1 ? 's' : ''} activo${activeOrders.length !== 1 ? 's' : ''}`
+                                )}
+                            </p>
+                        </div>
                     </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                         {/* Sound toggle */}
@@ -355,7 +341,7 @@ export default function MerchantDashboard() {
 
                 <div className="admin-content">
                     {/* KPI Cards */}
-                    <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 24 }}>
+                    <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, marginBottom: 24 }}>
                         {kpis.map((kpi, i) => (
                             <div key={i} className="card" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                                 <div style={{ width: 48, height: 48, borderRadius: 12, background: `${kpi.color}15`, color: kpi.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -382,7 +368,7 @@ export default function MerchantDashboard() {
                         </div>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 24 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: 24 }}>
                         {/* Active Orders — grouped by status */}
                         <div>
                             {/* Confirmed — needs to start preparing */}

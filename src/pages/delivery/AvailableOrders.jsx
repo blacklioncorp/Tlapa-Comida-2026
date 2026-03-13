@@ -285,55 +285,92 @@ export default function AvailableOrders() {
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {enrichedOrders.map((order, idx) => (
-                            <div key={order.id} style={{
-                                background: 'white', border: '1px solid #f1f5f9', borderRadius: 24, padding: 20,
-                                boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                                    <div style={{ display: 'flex', gap: 12 }}>
-                                        <div style={{ width: 48, height: 48, borderRadius: 16, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            {idx % 2 === 0 ? <Store size={24} color="#ea580c" /> : <Utensils size={24} color="#ea580c" />}
+                        {enrichedOrders.map((order, idx) => {
+                            const isCashOrder = order.payment?.method === 'cash';
+                            const defaultCommissionPct = platformSettings?.defaultCommission || 15;
+                            const commissionAmount = isCashOrder ? Math.round((order.totals.subtotal || 0) * (defaultCommissionPct / 100)) : 0;
+                            const currentBalance = user?.walletBalance || 0;
+                            const isUnderfunded = isCashOrder && (currentBalance < commissionAmount);
+
+                            return (
+                                <div key={order.id} style={{
+                                    background: 'white', border: '1px solid #f1f5f9', borderRadius: 24, padding: 20,
+                                    boxShadow: '0 4px 20px rgba(0,0,0,0.04)'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+                                        <div style={{ display: 'flex', gap: 12 }}>
+                                            <div style={{ width: 48, height: 48, borderRadius: 16, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {idx % 2 === 0 ? <Store size={24} color="#ea580c" /> : <Utensils size={24} color="#ea580c" />}
+                                            </div>
+                                            <div>
+                                                <h4 style={{ fontWeight: 700, fontSize: '1.05rem', color: '#0f172a', margin: 0 }}>{order.merchant?.name}</h4>
+                                                <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>Restaurante • {order.distanceKm ? order.distanceKm.toFixed(1) : '?'} km</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 style={{ fontWeight: 700, fontSize: '1.05rem', color: '#0f172a', margin: 0 }}>{order.merchant?.name}</h4>
-                                            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>Restaurante • {order.distanceKm ? order.distanceKm.toFixed(1) : '?'} km</p>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ea580c', margin: 0 }}>${(order.totals.deliveryFee + (isRaining ? weather?.condition?.deliverySurcharge || 0 : 0)).toFixed(2)}</h3>
+                                            <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', margin: 0 }}>TU PAGO</p>
                                         </div>
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ea580c', margin: 0 }}>${(order.totals.deliveryFee + (isRaining ? weather?.condition?.deliverySurcharge || 0 : 0)).toFixed(2)}</h3>
-                                        <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', margin: 0 }}>TU PAGO</p>
+
+                                    {/* Logistics Origin/Dest */}
+                                    <div style={{ position: 'relative', paddingLeft: 12, marginBottom: 20 }}>
+                                        {/* Line connecting points */}
+                                        <div style={{ position: 'absolute', left: 4, top: 8, bottom: 8, width: 2, background: '#e2e8f0' }} />
+
+                                        <div style={{ position: 'relative', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <div style={{ position: 'absolute', left: -11, width: 8, height: 8, borderRadius: '50%', background: '#cbd5e1', border: '2px solid white', boxSizing: 'content-box' }} />
+                                            <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>Origen: <span style={{ color: '#0f172a', fontWeight: 600 }}>{order.merchant?.address?.street || 'Local'}</span></p>
+                                        </div>
+                                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <div style={{ position: 'absolute', left: -11, width: 8, height: 8, borderRadius: '50%', background: '#ea580c', border: '2px solid white', boxSizing: 'content-box' }} />
+                                            <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>Destino: <span style={{ color: '#0f172a', fontWeight: 600 }}>{order.deliveryAddress?.colony || order.deliveryAddress?.street || 'Centro'}</span></p>
+                                        </div>
                                     </div>
+
+                                    {isCashOrder && (
+                                        <div style={{ background: '#f8fafc', padding: 12, borderRadius: 12, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <Wallet size={16} color="#64748b" />
+                                                <span style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 500 }}>
+                                                    Comisión plataforma ({defaultCommissionPct}%):
+                                                </span>
+                                            </div>
+                                            <span style={{ fontSize: '0.9rem', color: isUnderfunded ? '#ef4444' : '#0f172a', fontWeight: 700 }}>
+                                                -${commissionAmount}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {isUnderfunded ? (
+                                        <div style={{ textAlign: 'center' }}>
+                                            <button disabled style={{
+                                                width: '100%', background: '#cbd5e1', color: '#64748b', padding: 16, borderRadius: 16,
+                                                border: 'none', fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                                cursor: 'not-allowed'
+                                            }}>
+                                                SALDO INSUFICIENTE (-${commissionAmount})
+                                            </button>
+                                            <p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 8, marginBottom: 0, fontWeight: 500 }}>
+                                                Recarga tu monedero para aceptar este pedido.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => handleAccept(order.id)} style={{
+                                            width: '100%', background: '#ea580c', color: 'white', padding: 16, borderRadius: 16,
+                                            border: 'none', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                            cursor: 'pointer', boxShadow: '0 4px 12px rgba(234,88,12,0.2)', transition: 'transform 0.1s'
+                                        }}
+                                            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                                            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                                            <CheckCircle size={20} />
+                                            ACEPTAR PEDIDO
+                                        </button>
+                                    )}
                                 </div>
-
-                                {/* Logistics Origin/Dest */}
-                                <div style={{ position: 'relative', paddingLeft: 12, marginBottom: 20 }}>
-                                    {/* Line connecting points */}
-                                    <div style={{ position: 'absolute', left: 4, top: 8, bottom: 8, width: 2, background: '#e2e8f0' }} />
-
-                                    <div style={{ position: 'relative', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-                                        <div style={{ position: 'absolute', left: -11, width: 8, height: 8, borderRadius: '50%', background: '#cbd5e1', border: '2px solid white', boxSizing: 'content-box' }} />
-                                        <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>Origen: <span style={{ color: '#0f172a', fontWeight: 600 }}>{order.merchant?.address?.street || 'Local'}</span></p>
-                                    </div>
-                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12 }}>
-                                        <div style={{ position: 'absolute', left: -11, width: 8, height: 8, borderRadius: '50%', background: '#ea580c', border: '2px solid white', boxSizing: 'content-box' }} />
-                                        <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>Destino: <span style={{ color: '#0f172a', fontWeight: 600 }}>{order.deliveryAddress?.colony || order.deliveryAddress?.street || 'Centro'}</span></p>
-                                    </div>
-                                </div>
-
-                                <button onClick={() => handleAccept(order.id)} style={{
-                                    width: '100%', background: '#ea580c', color: 'white', padding: 16, borderRadius: 16,
-                                    border: 'none', fontWeight: 700, fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                    cursor: 'pointer', boxShadow: '0 4px 12px rgba(234,88,12,0.2)', transition: 'transform 0.1s'
-                                }}
-                                    onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
-                                    onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}>
-                                    <CheckCircle size={20} />
-                                    ACEPTAR PEDIDO
-                                </button>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

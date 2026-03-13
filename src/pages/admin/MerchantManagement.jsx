@@ -48,8 +48,6 @@ export default function MerchantManagement() {
         ownerEmail: '',
         isOpen: true,
         rating: 5.0,
-        reviews: 0,
-        rating: 5.0,
         reviews: 0
     });
 
@@ -70,7 +68,6 @@ export default function MerchantManagement() {
             address: '',
             logoUrl: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800',
             ownerEmail: '',
-            isOpen: true,
             isOpen: true,
             rating: 5.0,
             reviews: 0
