@@ -100,6 +100,9 @@ export default function ClientHome() {
                                 <LayoutDashboard size={20} />
                             </button>
                         )}
+                        <button className="btn btn-icon btn-ghost" onClick={() => navigate('/profile')} title="Mi Perfil">
+                            <User size={20} />
+                        </button>
                         <button className="btn btn-icon btn-ghost" onClick={logout} title="Cerrar sesión">
                             <LogOut size={20} />
                         </button>
