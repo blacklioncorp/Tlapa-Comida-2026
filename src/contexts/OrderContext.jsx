@@ -161,7 +161,7 @@ export function OrderProvider({ children }) {
     // Create Order
     // ═══════════════════════════════════════════════
     const createOrder = async ({ clientId, merchantId, items, deliveryAddress, paymentMethod, deliveryFee, serviceFee, discount = 0, notes = '' }) => {
-        const subtotal = items.reduce((sum, item) => calculateItemSubtotal(item), 0);
+        const subtotal = items.reduce((sum, item) => sum + calculateItemSubtotal(item), 0);
         const total = subtotal + deliveryFee + serviceFee - discount;
 
         const orderData = {
