@@ -19,6 +19,7 @@ import OrderTracking from './pages/client/OrderTracking';
 import Promotions from './pages/client/Promotions';
 import OrderRating from './pages/client/OrderRating';
 import ClientOrders from './pages/client/ClientOrders';
+import ProfileSettings from './pages/client/ProfileSettings';
 
 // Merchant Pages
 import MerchantDashboard from './pages/merchant/Dashboard';
@@ -88,6 +89,7 @@ function AppRoutes() {
       <Route path="/promotions" element={<ProtectedRoute allowedRoles={['client']}><Promotions /></ProtectedRoute>} />
       <Route path="/rating/:orderId" element={<ProtectedRoute allowedRoles={['client']}><OrderRating /></ProtectedRoute>} />
       <Route path="/orders" element={<ProtectedRoute allowedRoles={['client']}><ClientOrders /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute allowedRoles={['client']}><ProfileSettings /></ProtectedRoute>} />
 
       {/* Merchant Routes */}
       <Route path="/merchant" element={<ProtectedRoute allowedRoles={['merchant']}><MerchantDashboard /></ProtectedRoute>} />

@@ -5,7 +5,7 @@ import { useCart } from '../../contexts/CartContext';
 import { useSmartDelivery } from '../../contexts/SmartDeliveryContext';
 import { getCategories } from '../../data/seedData';
 import { supabase } from '../../supabase';
-import { Search, MapPin, ShoppingBag, Tag, Star, Clock, ChevronRight, LogOut, Ticket, Plus, LayoutDashboard } from 'lucide-react';
+import { Search, MapPin, ShoppingBag, Tag, Star, Clock, ChevronRight, LogOut, Ticket, Plus, LayoutDashboard, User } from 'lucide-react';
 import AdvancedLocationPicker from '../../components/AdvancedLocationPicker';
 import WeatherBanner from '../../components/WeatherBanner';
 import { MerchantLoadInline } from '../../components/MerchantLoadBadge';
@@ -269,9 +269,9 @@ export default function ClientHome() {
                     <Ticket size={20} />
                     Promos
                 </button>
-                <button className="bottom-nav-item" onClick={logout}>
-                    <LogOut size={20} />
-                    Salir
+                <button className="bottom-nav-item" onClick={() => navigate('/profile')}>
+                    <User size={20} />
+                    Perfil
                 </button>
             </nav>
 
