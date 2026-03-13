@@ -203,92 +203,113 @@ export default function MerchantManagement() {
                         </div>
                     </div>
 
-                    <div className="card no-padding overflow-hidden">
-                        <table className="admin-table">
-                            <thead>
-                                <tr>
-                                    <th>Comercio</th>
-                                    <th>Categoría</th>
-                                    <th>Entrega</th>
-                                    <th>Status</th>
-                                    <th>Rating</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredMerchants.map(merchant => (
-                                    <tr key={merchant.id}>
-                                        <td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                <img
-                                                    src={merchant.logoUrl || merchant.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800'}
-                                                    alt={merchant.name}
-                                                    style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }}
-                                                />
-                                                <div>
-                                                    <div style={{ fontWeight: 700 }}>{merchant.name}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                                                        {(() => {
-                                                            if (!merchant.address) return 'Sin dirección';
-                                                            if (typeof merchant.address === 'object') return merchant.address.street || 'Sin calle';
-                                                            try {
-                                                                const parsed = JSON.parse(merchant.address);
-                                                                return parsed.street || merchant.address;
-                                                            } catch (e) {
-                                                                return merchant.address;
-                                                            }
-                                                        })()}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span style={{
-                                                fontSize: '0.75rem',
-                                                background: 'var(--color-border-light)',
-                                                padding: '4px 8px',
-                                                borderRadius: 6
-                                            }}>
-                                                {categories.find(c => c.id === merchant.category)?.name || 'Sin categoría'}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div style={{ fontSize: '0.85rem' }}>{merchant.deliveryTime || merchant.prepTime} min</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>${merchant.deliveryFee} envío</div>
-                                        </td>
-                                        <td>
-                                            <span className={`status-badge ${merchant.isOpen ? 'status-delivered' : 'status-cancelled'}`}>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                        gap: '24px'
+                    }}>
+                        {filteredMerchants.map(merchant => (
+                            <div key={merchant.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '20px' }}>
+                                {/* Card Header: Image & Basic Info */}
+                                <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                                    <img
+                                        src={merchant.logoUrl || merchant.image || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800'}
+                                        alt={merchant.name}
+                                        style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover', border: '1px solid var(--color-border-light)' }}
+                                    />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: '0 0 4px 0', lineHeight: 1.2 }}>{merchant.name}</h3>
+                                            <span className={`status-badge ${merchant.isOpen ? 'status-delivered' : 'status-cancelled'}`} style={{ padding: '2px 8px', fontSize: '0.7rem' }}>
                                                 {merchant.isOpen ? 'Abierto' : 'Cerrado'}
                                             </span>
-                                        </td>
-                                        <td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700 }}>
-                                                <Star size={14} fill="var(--color-warning)" color="var(--color-warning)" />
-                                                {merchant.rating}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div style={{ display: 'flex', gap: 8 }}>
-                                                <button title="Editar" className="btn btn-icon btn-ghost" onClick={() => openEditModal(merchant)}>
-                                                    <Edit2 size={16} />
-                                                </button>
-                                                <button title={merchant.isPremium ? "Quitar Premium" : "Otorgar Premium"} className="btn btn-icon btn-ghost" onClick={() => handleTogglePremium(merchant)} style={{ color: merchant.isPremium ? '#d97706' : 'var(--color-text-muted)' }}>
-                                                    <Star size={16} fill={merchant.isPremium ? 'currentColor' : 'none'} />
-                                                </button>
-                                                {!merchant.isPremium && merchant.customizationAttempts >= 1 && (
-                                                    <button title="Resetear Intentos de Diseño a 0 (Dar 1 oportunidad extra)" className="btn btn-icon btn-ghost" onClick={() => handleResetAttempts(merchant)} style={{ color: '#2563eb' }}>
-                                                        <Unlock size={16} />
-                                                    </button>
-                                                )}
-                                                <button title="Eliminar Comercio" className="btn btn-icon btn-ghost" onClick={() => handleDelete(merchant.id)}>
-                                                    <Trash2 size={16} color="var(--color-error)" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                        </div>
+                                        <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                            {(() => {
+                                                if (!merchant.address) return 'Sin dirección';
+                                                if (typeof merchant.address === 'object') return merchant.address.street || 'Sin calle';
+                                                try {
+                                                    const parsed = JSON.parse(merchant.address);
+                                                    return parsed.street || merchant.address;
+                                                } catch (e) {
+                                                    return merchant.address;
+                                                }
+                                            })()}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Divider */}
+                                <div style={{ height: 1, background: 'var(--color-border-light)', margin: '0 -20px' }} />
+
+                                {/* Additional Specs (Grid 2 cols) */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: '0.85rem' }}>
+                                    <div>
+                                        <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem', marginBottom: 2 }}>Categoría</span>
+                                        <span style={{ fontWeight: 600 }}>{categories.find(c => c.id === merchant.category)?.name || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem', marginBottom: 2 }}>Rating</span>
+                                        <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <Star size={14} fill="var(--color-warning)" color="var(--color-warning)" /> {merchant.rating}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem', marginBottom: 2 }}>Tiempo (min)</span>
+                                        <span style={{ fontWeight: 600 }}>{merchant.deliveryTime || merchant.prepTime} min</span>
+                                    </div>
+                                    <div>
+                                        <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem', marginBottom: 2 }}>Costo Envío</span>
+                                        <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>${merchant.deliveryFee}</span>
+                                    </div>
+                                </div>
+
+                                {/* Divider */}
+                                <div style={{ height: 1, background: 'var(--color-border-light)', margin: '0 -24px' }} />
+
+                                {/* Action Buttons */}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 'auto' }}>
+                                    <button 
+                                        title="Editar Comercio" 
+                                        className="btn btn-outline" 
+                                        style={{ padding: '6px 12px', fontSize: '0.85rem' }} 
+                                        onClick={() => openEditModal(merchant)}
+                                    >
+                                        <Edit2 size={16} style={{ marginRight: 6 }} /> Editar
+                                    </button>
+                                    
+                                    <button 
+                                        title={merchant.isPremium ? "Quitar Premium" : "Otorgar Premium"} 
+                                        className={`btn ${merchant.isPremium ? 'btn-ghost' : 'btn-outline'}`}
+                                        style={{ padding: '6px 12px', fontSize: '0.85rem', color: merchant.isPremium ? '#d97706' : 'currentColor', borderColor: merchant.isPremium ? 'transparent' : 'var(--color-border)' }} 
+                                        onClick={() => handleTogglePremium(merchant)}
+                                    >
+                                        <Star size={16} fill={merchant.isPremium ? 'currentColor' : 'none'} style={{ marginRight: 6 }} />
+                                        {merchant.isPremium ? 'Premium' : 'Normal'}
+                                    </button>
+
+                                    {!merchant.isPremium && merchant.customizationAttempts >= 1 && (
+                                        <button 
+                                            title="Resetear Intentos de Diseño a 0 (Dar 1 oportunidad extra)" 
+                                            className="btn btn-icon btn-ghost" 
+                                            onClick={() => handleResetAttempts(merchant)} 
+                                            style={{ color: '#2563eb' }}
+                                        >
+                                            <Unlock size={16} />
+                                        </button>
+                                    )}
+
+                                    <button 
+                                        title="Eliminar Comercio" 
+                                        className="btn btn-icon btn-ghost" 
+                                        onClick={() => handleDelete(merchant.id)}
+                                        style={{ color: 'var(--color-error)' }}
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </main>
