@@ -86,6 +86,32 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
         try {
             const isNew = !editingItem?.id;
             const itemId = editingItem?.id || `item-${Date.now()}`;
+            
+            let finalImageUrl = formData.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
+
+            // Si es un archivo nuevo cargado (base64 local), súbelo al Storage
+            if (finalImageUrl.startsWith('data:image/')) {
+                const response = await fetch(finalImageUrl);
+                const blob = await response.blob();
+                
+                const fileExt = blob.type.split('/')[1] || 'jpg';
+                const fileName = `merchant_${merchantId}/${itemId}_${Date.now()}.${fileExt}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('product-images')
+                    .upload(fileName, blob, {
+                        cacheControl: '3600',
+                        upsert: true
+                    });
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage
+                    .from('product-images')
+                    .getPublicUrl(fileName);
+
+                finalImageUrl = publicUrl;
+            }
 
             const payload = {
                 id: itemId,
@@ -95,7 +121,7 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
                 price: Number(formData.basePrice),
                 originalPrice: Number(formData.basePrice),
                 category: isCustomCategory ? customCategory : formData.category,
-                imageUrl: formData.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500',
+                imageUrl: finalImageUrl,
                 isAvailable: formData.isAvailable,
                 modifiers: formData.modifierGroups
             };
@@ -116,8 +142,8 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
     };
 
     return (
-        <div className="modal-backdrop">
-            <div className="modal-content" style={{ maxWidth: 650, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div className="modal-overlay" onClick={onClose} style={{ zIndex: 9999 }}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 650, maxHeight: '90vh', overflowY: 'auto' }}>
                 <div className="modal-header">
                     <h2>{editingItem ? 'Editar Platillo' : 'Nuevo Platillo'}</h2>
                     <button className="btn btn-icon btn-ghost" type="button" onClick={onClose}><X /></button>
