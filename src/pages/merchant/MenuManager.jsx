@@ -63,7 +63,10 @@ export default function MenuManager() {
             subscription = supabase.channel(`public:products:merchantId=eq.${merchantId}`)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `merchantId=eq.${merchantId}` }, payload => {
                     setMenu(current => {
-                        if (payload.eventType === 'INSERT') return [...current, payload.new];
+                        if (payload.eventType === 'INSERT') {
+                            if (current.some(p => p.id === payload.new.id)) return current;
+                            return [...current, payload.new];
+                        }
                         if (payload.eventType === 'UPDATE') return current.map(p => p.id === payload.new.id ? payload.new : p);
                         if (payload.eventType === 'DELETE') return current.filter(p => p.id !== payload.old.id);
                         return current;

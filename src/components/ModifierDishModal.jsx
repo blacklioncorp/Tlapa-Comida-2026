@@ -18,6 +18,7 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
 
     const [isCustomCategory, setIsCustomCategory] = useState(false);
     const [customCategory, setCustomCategory] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (editingItem?.category && !existingCategories.includes(editingItem.category)) {
@@ -83,6 +84,8 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
     // ---- GUARDAR EN SUPABASE ---- //
     const handleSave = async (e) => {
         e.preventDefault();
+        if (isSaving) return;
+        setIsSaving(true);
         try {
             const isNew = !editingItem?.id;
             const itemId = editingItem?.id || `item-${Date.now()}`;
@@ -138,6 +141,8 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
         } catch (error) {
             console.error("Error al guardar el platillo: ", error);
             alert("No se pudo guardar la configuración.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -284,9 +289,9 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
                     ))}
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 32 }}>
-                        <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
-                        <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Save size={18} /> Guardar Cambios
+                        <button type="button" className="btn btn-ghost" onClick={onClose} disabled={isSaving}>Cancelar</button>
+                        <button type="submit" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 8 }} disabled={isSaving}>
+                            <Save size={18} /> {isSaving ? 'Guardando...' : 'Guardar Cambios'}
                         </button>
                     </div>
                 </form>
