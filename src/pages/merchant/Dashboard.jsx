@@ -12,23 +12,26 @@ import {
     ChevronRight, Package, MapPin, Phone, Menu
 } from 'lucide-react';
 
-// New order notification sound (we create a simple beep)
 function playNotificationSound() {
     try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = 800;
-        gain.gain.value = 0.3;
-        osc.start();
-        // Three beeps
-        setTimeout(() => { gain.gain.value = 0; }, 200);
-        setTimeout(() => { gain.gain.value = 0.3; }, 400);
-        setTimeout(() => { gain.gain.value = 0; }, 600);
-        setTimeout(() => { gain.gain.value = 0.3; }, 800);
-        setTimeout(() => { osc.stop(); ctx.close(); }, 1100);
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(e => {
+            console.warn('Playback prevented by browser policies:', e);
+            // Fallback beep just in case
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 800;
+            gain.gain.value = 0.3;
+            osc.start();
+            setTimeout(() => { gain.gain.value = 0; }, 200);
+            setTimeout(() => { gain.gain.value = 0.3; }, 400);
+            setTimeout(() => { gain.gain.value = 0; }, 600);
+            setTimeout(() => { gain.gain.value = 0.3; }, 800);
+            setTimeout(() => { osc.stop(); ctx.close(); }, 1100);
+        });
     } catch (e) {
         console.warn('Could not play notification sound:', e);
     }
@@ -420,7 +423,7 @@ export default function MerchantDashboard() {
 
                         {/* Summary / Stats */}
                         <div>
-                            <div className="card" style={{ marginBottom: 20 }}>
+                            <div className="card" style={{ marginBottom: 20, padding: 24 }}>
                                 <h2 style={{ fontWeight: 700, fontSize: '1.1rem', marginBottom: 20 }}>Rendimiento</h2>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                                     <div>
