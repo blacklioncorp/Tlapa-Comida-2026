@@ -130,7 +130,7 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
                 const { error } = await supabase.from('products').insert([payload]);
                 if (error) throw error;
             } else {
-                const { error } = await supabase.from('products').update({ ...payload, updated_at: new Date().toISOString() }).eq('id', itemId);
+                const { error } = await supabase.from('products').update(payload).eq('id', itemId);
                 if (error) throw error;
             }
 
