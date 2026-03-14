@@ -10,7 +10,7 @@ export default function ModifierDishModal({ merchantId, editingItem, onClose, ex
         description: editingItem?.description || '',
         basePrice: editingItem?.price || 0, // Migramos de 'price' a 'basePrice'
         category: editingItem?.category || '',
-        imageUrl: editingItem?.image || '',
+        imageUrl: editingItem?.imageUrl || editingItem?.image || '',
         isAvailable: editingItem?.isAvailable ?? true,
         // Estado de Modificadores inicializado dinámicamente
         modifierGroups: editingItem?.modifiers || editingItem?.modifierGroups || []
