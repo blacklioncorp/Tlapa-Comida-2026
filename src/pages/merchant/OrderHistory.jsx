@@ -139,8 +139,8 @@ export default function MerchantOrderHistory() {
                     </div>
 
                     {/* Orders Table */}
-                    <div className="card no-padding overflow-hidden">
-                        <table className="admin-table">
+                    <div className="card no-padding overflow-hidden" style={{ borderRadius: 16 }}>
+                        <table className="data-table">
                             <thead>
                                 <tr>
                                     <th># Pedido</th>
