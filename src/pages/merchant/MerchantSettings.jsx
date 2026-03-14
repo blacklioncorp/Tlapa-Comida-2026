@@ -6,6 +6,7 @@ import MerchantSidebar from '../../components/merchant/MerchantSidebar';
 import {
     Settings, Save, Store, Clock, ShoppingBag, AlertOctagon, Star, Menu
 } from 'lucide-react';
+import ImageUpload from '../../components/ImageUpload';
 
 const DAYS_OF_WEEK = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -65,11 +66,20 @@ export default function MerchantSettings() {
                 if (data && !error) {
                     setForm(prev => ({
                         ...prev,
-                        ...data,
+                        name: data.name || '',
+                        description: data.description || '',
+                        phone: data.phone || '',
+                        deliveryTime: data.deliveryTime || '20-30',
+                        deliveryFee: data.deliveryFee ?? 20,
+                        minOrder: data.minOrder ?? 100,
+                        addressStreet: data.addressStreet || '',
                         addressColony: data.address?.colony || data.addressColony || '',
-                        schedule: data.schedule || DEFAULT_SCHEDULE,
-                        prepTimeMinutes: data.prepTimeMinutes || 20,
+                        image: data.image || '',
+                        bannerUrl: data.brandData?.bannerUrl || data.bannerUrl || '',
+                        logoUrl: data.brandData?.logoUrl || data.logoUrl || '',
                         isOpen: data.isOpen ?? true,
+                        prepTimeMinutes: data.prepTimeMinutes || 20,
+                        schedule: data.schedule || DEFAULT_SCHEDULE,
                         primaryColor: data.brandData?.primaryColor || '#e14a27',
                     }));
                     setCustomizationAttempts(data.customizationAttempts || 0);
@@ -102,6 +112,7 @@ export default function MerchantSettings() {
     const handleSave = async () => {
         if (!merchantId) return;
         try {
+            setSaved('loading');
             // Determine if customization was attempted (Identity visual fields)
             const isEditingIdentity = true; // We save everything together for now
             let newAttempts = customizationAttempts;
@@ -109,6 +120,30 @@ export default function MerchantSettings() {
             // If they are not premium and editing identity, increment their counter
             if (isEditingIdentity && !isPremium) {
                 newAttempts += 1;
+            }
+
+            let finalLogoUrl = form.logoUrl;
+            if (finalLogoUrl && finalLogoUrl.startsWith('data:image/')) {
+                const response = await fetch(finalLogoUrl);
+                const blob = await response.blob();
+                const fileExt = blob.type.split('/')[1] || 'jpg';
+                const fileName = `merchant_${merchantId}/logo_${Date.now()}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
+                if (uploadError) throw uploadError;
+                const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
+                finalLogoUrl = publicUrl;
+            }
+
+            let finalBannerUrl = form.bannerUrl;
+            if (finalBannerUrl && finalBannerUrl.startsWith('data:image/')) {
+                const response = await fetch(finalBannerUrl);
+                const blob = await response.blob();
+                const fileExt = blob.type.split('/')[1] || 'jpg';
+                const fileName = `merchant_${merchantId}/banner_${Date.now()}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
+                if (uploadError) throw uploadError;
+                const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName);
+                finalBannerUrl = publicUrl;
             }
 
             const { error } = await supabase.from('merchants').update({
@@ -121,14 +156,16 @@ export default function MerchantSettings() {
                 isOpen: form.isOpen,
                 prepTimeMinutes: form.prepTimeMinutes,
                 schedule: form.schedule,
+                logoUrl: finalLogoUrl,
+                bannerUrl: finalBannerUrl,
                 address: JSON.stringify({
                     street: form.addressStreet,
                     colony: form.addressColony
                 }),
                 brandData: {
                     primaryColor: form.primaryColor,
-                    logoUrl: form.logoUrl,
-                    bannerUrl: form.bannerUrl
+                    logoUrl: finalLogoUrl,
+                    bannerUrl: finalBannerUrl
                 },
                 customizationAttempts: newAttempts,
                 updatedAt: new Date().toISOString()
@@ -136,8 +173,9 @@ export default function MerchantSettings() {
 
             if (error) throw error;
 
+            setForm(prev => ({ ...prev, logoUrl: finalLogoUrl, bannerUrl: finalBannerUrl }));
             setCustomizationAttempts(newAttempts);
-            setSaved(true);
+            setSaved('success');
             setTimeout(() => setSaved(false), 2500);
         } catch (error) {
             console.error("Error saving merchant settings:", error);
@@ -207,8 +245,8 @@ export default function MerchantSettings() {
         <div className="admin-layout">
             <MerchantSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
-            <main className="admin-main">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, flexWrap: 'wrap', gap: 12, padding: '24px 24px 0' }}>
+            <main className="admin-main" style={{ padding: 0 }}>
+                <div style={{ position: 'sticky', top: 0, background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, flexWrap: 'wrap', gap: 12, padding: '24px 24px 16px', borderBottom: '1px solid var(--color-border-light)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)} style={{ position: 'static', transform: 'none' }}>
                             <Menu size={24} />
@@ -224,17 +262,18 @@ export default function MerchantSettings() {
                                 <AlertOctagon size={16} /> CIERRE DE EMERGENCIA
                             </button>
                         )}
-                        <button className="btn btn-primary" onClick={handleSave} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Save size={16} /> Guardar Cambios
+                        <button className="btn btn-primary" onClick={handleSave} disabled={saved === 'loading'} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Save size={16} /> {saved === 'loading' ? 'Guardando...' : 'Guardar Cambios'}
                         </button>
                     </div>
                 </div>
 
-                {saved && (
-                    <div className="toast success" style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999 }}>
-                        ✅ Cambios guardados en la nube
-                    </div>
-                )}
+                <div style={{ padding: '0 24px 40px' }}>
+                    {saved === 'success' && (
+                        <div className="toast success" style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 999 }}>
+                            ✅ Cambios guardados en la nube
+                        </div>
+                    )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 24 }}>
 
@@ -406,14 +445,28 @@ export default function MerchantSettings() {
 
                                 <div>
                                     <div className="form-group">
-                                        <label className="form-label">Enlace al Logo (Opcional)</label>
-                                        <input className="form-input" value={form.logoUrl} onChange={(e) => update('logoUrl', e.target.value)} placeholder="https://..." />
-                                        {form.logoUrl && <img src={form.logoUrl} alt="Logo preview" style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover', marginTop: 8 }} />}
+                                        <label className="form-label">Logo del Local (Opcional)</label>
+                                        <div style={{ marginTop: 8 }}>
+                                            <ImageUpload
+                                                currentImage={form.logoUrl}
+                                                onImageChange={(b64) => update('logoUrl', b64)}
+                                                shape="square"
+                                                size={100}
+                                                label=""
+                                            />
+                                        </div>
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label">Enlace al Banner (Fondo de tu tienda)</label>
-                                        <input className="form-input" value={form.bannerUrl} onChange={(e) => update('bannerUrl', e.target.value)} placeholder="https://..." />
-                                        {form.bannerUrl && <img src={form.bannerUrl} alt="Banner preview" style={{ width: '100%', height: 100, borderRadius: 8, objectFit: 'cover', marginTop: 8 }} />}
+                                        <label className="form-label">Banner (Fondo superior)</label>
+                                        <div style={{ marginTop: 8 }}>
+                                            <ImageUpload
+                                                currentImage={form.bannerUrl}
+                                                onImageChange={(b64) => update('bannerUrl', b64)}
+                                                shape="banner"
+                                                size={140}
+                                                label=""
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -475,6 +528,7 @@ export default function MerchantSettings() {
                             )}
                         </div>
                     </div>
+                </div>
                 </div>
             </main>
         </div>
