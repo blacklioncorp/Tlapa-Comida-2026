@@ -23,16 +23,19 @@ export default function AdminDashboard() {
         return new Date(o.createdAt).toDateString() === today;
     }).length;
 
-    const [merchants, setMerchants] = useState([]);
+    const [drivers, setDrivers] = useState([]);
     useEffect(() => {
         supabase.from('merchants').select('*').then(({ data }) => setMerchants(data || []));
+        supabase.from('users').select('*').eq('role', 'driver').then(({ data }) => setDrivers(data || []));
     }, []);
+
+    const onlineDriversCount = drivers.filter(d => d.isOnline).length;
 
     const kpis = [
         { label: 'Ventas Totales', value: `$${totalSales.toLocaleString('es-MX', { minimumFractionDigits: 0 })}`, change: '+12.5%', positive: true, icon: TrendingUp },
         { label: 'Pedidos Hoy', value: todayOrders || orders.length, change: '+8.2%', positive: true, icon: ShoppingBag },
         { label: 'Comercios Activos', value: merchants.filter(m => m.status === 'open' || m.isOpen).length, change: '', positive: true, icon: Store },
-        { label: 'Repartidores', value: '3', change: '2 en línea', positive: true, icon: Truck },
+        { label: 'Repartidores', value: drivers.length.toString(), change: `${onlineDriversCount} en línea`, positive: true, icon: Truck },
     ];
 
     // Weekly chart data

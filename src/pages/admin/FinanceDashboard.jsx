@@ -130,7 +130,7 @@ export default function FinanceDashboard() {
                 const m = merchants.find(mm => mm.id === fin.merchantId);
                 perMerchant[fin.merchantId] = {
                     id: fin.merchantId,
-                    name: fin.merchantName,
+                    name: m?.name || fin.merchantName,
                     logoUrl: m?.logoUrl || '',
                     commissionRate: fin.commissionRate,
                     totalOrders: 0,
@@ -175,7 +175,7 @@ export default function FinanceDashboard() {
         });
 
         return { totals, perMerchant: Object.values(perMerchant), perDriver: Object.values(perDriver) };
-    }, [allOrders]);
+    }, [allOrders, merchants]);
 
     const { totals, perMerchant, perDriver } = financials;
 

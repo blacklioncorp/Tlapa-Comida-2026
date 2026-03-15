@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../contexts/OrderContext';
 import { supabase } from '../../supabase';
 import { ALL_USERS } from '../../data/seedData';
-import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Truck, DollarSign, LayoutGrid, Gift, User, CheckCircle, Navigation, Menu } from 'lucide-react';
+import { BarChart3, Store, Users, ShoppingBag, Settings, LogOut, Search, Eye, Filter, DollarSign, LayoutGrid, CloudRain, AlertTriangle, Truck, Clock, Zap, MapPin, Gift, Menu, X, FileText, Ban, CheckCircle, AlertCircle, User, Navigation } from 'lucide-react';
 import AdminLiveMap from '../../components/AdminLiveMap';
 import AdminSidebar from '../../components/admin/AdminSidebar';
 
@@ -15,12 +15,15 @@ export default function DeliveryManagement() {
     const [search, setSearch] = useState('');
     const [drivers, setDrivers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    // Drawer State (Unified with UserManagement)
+    const [selectedDriver, setSelectedDriver] = useState(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [amountPaid, setAmountPaid] = useState('');
+    const [isProcessingTopup, setIsProcessingTopup] = useState(false);
     
-    // Top-up modal state
+    // Top-up specific state
     const [selectedDriverForTopup, setSelectedDriverForTopup] = useState(null);
     const [topupAmount, setTopupAmount] = useState('');
-    const [isProcessingTopup, setIsProcessingTopup] = useState(false);
 
     // Initial load and Realtime sync
     useEffect(() => {
@@ -106,10 +109,18 @@ export default function DeliveryManagement() {
         };
     };
 
-    const handleSettleDebt = (driverId, amount) => {
+    const handleSettleDebt = async (driverId, amount) => {
         if (window.confirm(`¿Confirmas que el repartidor entregó a la oficina la cantidad de $${amount.toFixed(2)} en efectivo?`)) {
-            alert('Liquidación registrada exitosamente. (Falta conectar a backend)');
-            // Here you'd insert a transaction in a 'driver_transactions' table in Supabase
+            try {
+                const { error } = await supabase.from('users').update({
+                    cashInHand: 0 // In a production system, this should be an RPC to record a transaction
+                }).eq('id', driverId);
+
+                if (error) throw error;
+                alert('Liquidación registrada exitosamente.');
+            } catch (error) {
+                alert('Error al liquidar: ' + error.message);
+            }
         }
     };
 
@@ -262,6 +273,13 @@ export default function DeliveryManagement() {
                                                             Liquidar
                                                         </button>
                                                     )}
+                                                    <button 
+                                                        className="btn btn-ghost"
+                                                        style={{ padding: '6px 12px', fontSize: '0.8rem', border: '1px solid var(--color-border)' }}
+                                                        onClick={() => { setSelectedDriver(driver); setIsDrawerOpen(true); }}
+                                                    >
+                                                        Expediente
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -319,6 +337,172 @@ export default function DeliveryManagement() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* DRIVER DRAWER / MODAL - Gestión (Unified with UserManagement) */}
+            {isDrawerOpen && selectedDriver && (
+                <>
+                    <div
+                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000 }}
+                        onClick={() => setIsDrawerOpen(false)}
+                    />
+                    <div style={{
+                        position: 'fixed', top: 0, right: 0, bottom: 0, width: '400px', maxWidth: '100%',
+                        background: 'white', zIndex: 1001, padding: 24, boxShadow: '-8px 0 24px rgba(0,0,0,0.1)',
+                        display: 'flex', flexDirection: 'column', overflowY: 'auto'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                            <h2 style={{ margin: 0 }}>Gestión de Repartidor</h2>
+                            <button className="btn btn-icon btn-ghost" onClick={() => setIsDrawerOpen(false)}><X size={20} /></button>
+                        </div>
+
+                        {/* Info Básica */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+                            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--color-primary-bg)', overflow: 'hidden' }}>
+                                {selectedDriver.avatarUrl ? (
+                                    <img src={selectedDriver.avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                ) : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🛵</div>}
+                            </div>
+                            <div>
+                                <h3 style={{ margin: 0 }}>{selectedDriver.displayName}</h3>
+                                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{selectedDriver.email}</p>
+                                <span className={`badge badge-${selectedDriver.verification_status === 'approved' ? 'success' : 'warning'}`} style={{ marginTop: 4 }}>
+                                    {selectedDriver.verification_status?.toUpperCase() || 'PENDIENTE'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Finanzas */}
+                        <div style={{ background: '#f8fafc', borderRadius: 12, padding: 16, marginBottom: 24, border: '1px solid #e2e8f0' }}>
+                            <h3 style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: 8, fontSize: '1rem' }}>
+                                <DollarSign size={18} color="#10b981" /> Deuda en Efectivo
+                            </h3>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <div>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Monto a favor de app</p>
+                                    <h2 style={{ margin: 0, color: selectedDriver.isBlockedDueToCash ? 'var(--color-error)' : 'inherit' }}>
+                                        ${(selectedDriver.cashInHand || 0).toFixed(2)}
+                                    </h2>
+                                </div>
+                                <div style={{ textAlign: 'right' }}>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Límite Permitido</p>
+                                    <h4 style={{ margin: 0, color: 'var(--color-text-muted)' }}>${selectedDriver.maxCashLimit || 1000}</h4>
+                                </div>
+                            </div>
+
+                            {selectedDriver.isBlockedDueToCash && (
+                                <div style={{ background: '#fef2f2', color: '#b91c1c', padding: 12, borderRadius: 8, fontSize: '0.8rem', fontWeight: 600, display: 'flex', gap: 8, marginBottom: 16 }}>
+                                    <AlertCircle size={16} /> <span>Cuenta bloqueada por exceso de efectivo. Liquidar deuda para reactivar.</span>
+                                </div>
+                            )}
+
+                            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: 8 }}>Registrar pago en oficina (MXN):</label>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <input
+                                    type="number"
+                                    className="input"
+                                    style={{ flex: 1 }}
+                                    value={amountPaid}
+                                    onChange={(e) => setAmountPaid(e.target.value)}
+                                    placeholder="Ej. 500"
+                                />
+                                <button className="btn btn-primary" onClick={async () => {
+                                    if (!amountPaid || isNaN(amountPaid)) return;
+                                    const newBalance = Math.max(0, (selectedDriver.cashInHand || 0) - parseFloat(amountPaid));
+                                    const { error } = await supabase.from('users').update({ 
+                                        cashInHand: newBalance,
+                                        isBlockedDueToCash: newBalance > (selectedDriver.maxCashLimit || 1000)
+                                    }).eq('id', selectedDriver.id);
+                                    if (!error) {
+                                        setAmountPaid('');
+                                        setSelectedDriver(prev => ({ ...prev, cashInHand: newBalance }));
+                                        alert('Abono registrado correctamente');
+                                    }
+                                }}>Abonar</button>
+                            </div>
+                        </div>
+
+                        {/* Documentos */}
+                        <div style={{ background: '#f8fafc', borderRadius: 12, padding: 16, marginBottom: 24, border: '1px solid #e2e8f0' }}>
+                            <h3 style={{ margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: 8, fontSize: '1rem' }}>
+                                <FileText size={18} color="#3b82f6" /> Expediente Digital
+                            </h3>
+
+                            {selectedDriver.selfie_url && (
+                                <div style={{ marginBottom: 16, textAlign: 'center' }}>
+                                    <p style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginBottom: 8 }}>Fotografía de Perfil (Selfie)</p>
+                                    <img
+                                        src={selectedDriver.selfie_url}
+                                        style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover', border: '3px solid #3b82f6' }}
+                                        alt="Selfie"
+                                    />
+                                </div>
+                            )}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+                                {selectedDriver.driver_documents && Object.entries(selectedDriver.driver_documents).map(([key, url]) => (
+                                    <a
+                                        key={key}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            padding: '8px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0',
+                                            textDecoration: 'none', color: 'var(--color-text)', fontSize: '0.7rem',
+                                            display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600
+                                        }}
+                                    >
+                                        <FileText size={14} /> {key.replace('_', ' ').toUpperCase()}
+                                    </a>
+                                ))}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                    className="btn btn-outline"
+                                    style={{ flex: 1, borderColor: 'var(--color-error)', color: 'var(--color-error)' }}
+                                    onClick={async () => {
+                                        if (window.confirm("¿Rechazar documentos? El repartidor deberá subirlos de nuevo.")) {
+                                            await supabase.from('users').update({ verification_status: 'rejected' }).eq('id', selectedDriver.id);
+                                            setIsDrawerOpen(false);
+                                        }
+                                    }}
+                                >
+                                    Rechazar
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ flex: 1 }}
+                                    onClick={async () => {
+                                        if (window.confirm("¿Aprobar repartidor? Esto le permitirá recibir pedidos.")) {
+                                            await supabase.from('users').update({
+                                                verification_status: 'approved',
+                                                isVerified: true
+                                            }).eq('id', selectedDriver.id);
+                                            setIsDrawerOpen(false);
+                                        }
+                                    }}
+                                    disabled={selectedDriver.verification_status === 'approved'}
+                                >
+                                    Aprobar Alta
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Kill Switch */}
+                        <div style={{ marginTop: 'auto', paddingTop: 24, borderTop: '1px solid var(--color-border-light)' }}>
+                            <button className="btn btn-error" style={{ width: '100%' }} onClick={async () => {
+                                if (window.confirm("¿Suspender repartidor? No podrá recibir pedidos ni iniciar sesión.")) {
+                                    await supabase.from('users').update({ isActive: false }).eq('id', selectedDriver.id);
+                                    setIsDrawerOpen(false);
+                                }
+                            }}>
+                                <Ban size={18} style={{ marginRight: 8, display: 'inline' }} /> Suspender Repartidor
+                            </button>
+                        </div>
+                    </div>
+                </>
             )}
         </div>
     );

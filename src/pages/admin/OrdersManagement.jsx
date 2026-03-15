@@ -40,11 +40,14 @@ export default function OrdersManagement() {
     }, 0);
 
     const overloaded = getOverloadedMerchants();
-    const activeCount = orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length;
-    const avgWaitTime = orders
-        .filter(o => !['delivered', 'cancelled'].includes(o.status))
+    const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status));
+    const recentOrdersForStats = orders.filter(o => 
+        !['delivered', 'cancelled'].includes(o.status) && 
+        (Date.now() - new Date(o.createdAt).getTime()) < (24 * 60 * 60 * 1000)
+    );
+    const avgWaitTime = recentOrdersForStats
         .reduce((sum, o) => sum + (Date.now() - new Date(o.createdAt).getTime()) / 60000, 0);
-    const avgWait = activeCount > 0 ? Math.round(avgWaitTime / activeCount) : 0;
+    const avgWait = recentOrdersForStats.length > 0 ? Math.round(avgWaitTime / recentOrdersForStats.length) : 0;
 
     // Smart assign driver to order
     const handleSmartAssign = (orderId) => {

@@ -134,10 +134,41 @@ export default function MerchantManagement() {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm('¿Estás seguro de eliminar este comercio?')) {
-            const { error } = await supabase.from('merchants').delete().eq('id', id);
-            if (error) alert("Error eliminando comercio: " + error.message);
+    const handleDelete = async (merchant) => {
+        const confirmMsg = `⚠️ ¿Eliminar "${merchant.name}" permanentemente?\n\n` +
+            `Esto borrará:\n• El comercio\n• Todos sus platillos/productos\n\n` +
+            `NOTA: El correo "${merchant.ownerEmail}" NO se libera automáticamente.\n` +
+            `Para reutilizarlo debes eliminarlo en:\n` +
+            `Supabase → Authentication → Users → busca el email → Delete User`;
+
+        if (window.confirm(confirmMsg)) {
+            try {
+                // 1. Eliminar todos los productos del comercio (FK constraint)
+                const { error: prodError } = await supabase
+                    .from('products')
+                    .delete()
+                    .eq('merchantId', merchant.id);
+                if (prodError) throw prodError;
+
+                // 2. Resetear el rol del usuario en la tabla users (opcional pero limpio)
+                if (merchant.ownerEmail) {
+                    await supabase
+                        .from('users')
+                        .update({ role: 'client', merchantId: null })
+                        .eq('email', merchant.ownerEmail.toLowerCase().trim());
+                }
+
+                // 3. Eliminar el comercio
+                const { error } = await supabase.from('merchants').delete().eq('id', merchant.id);
+                if (error) throw error;
+
+                alert(`✅ Comercio "${merchant.name}" eliminado correctamente.\n\n` +
+                    `Recuerda eliminar el correo "${merchant.ownerEmail}" desde:\n` +
+                    `Supabase → Authentication → Users → Delete User\n` +
+                    `para poder reutilizar ese correo en un nuevo registro.`);
+            } catch (error) {
+                alert("Error eliminando comercio: " + error.message);
+            }
         }
     };
 
@@ -302,7 +333,7 @@ export default function MerchantManagement() {
                                     <button 
                                         title="Eliminar Comercio" 
                                         className="btn btn-icon btn-ghost" 
-                                        onClick={() => handleDelete(merchant.id)}
+                                        onClick={() => handleDelete(merchant)}
                                         style={{ color: 'var(--color-error)' }}
                                     >
                                         <Trash2 size={18} />

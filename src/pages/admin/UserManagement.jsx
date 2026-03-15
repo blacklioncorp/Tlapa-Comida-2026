@@ -25,6 +25,7 @@ export default function UserManagement() {
     const [searchTerm, setSearchTerm] = useState('');
     const [clients, setClients] = useState([]);
     const [drivers, setDrivers] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // Drawer State
@@ -44,12 +45,14 @@ export default function UserManagement() {
 
     useEffect(() => {
         const fetchUsers = async () => {
+            setLoading(true);
             const { data } = await supabase.from('users').select('*');
             if (data) {
                 setClients(data.filter(u => u.role === 'client'));
                 // Ensure all drivers are shown, even those pending verification
                 setDrivers(data.filter(u => u.role === 'driver'));
             }
+            setLoading(false);
         };
         fetchUsers();
 
@@ -245,7 +248,15 @@ export default function UserManagement() {
                                 )}
                             </thead>
                             <tbody>
-                                {activeTab === 'clients' ? (
+                                {loading ? (
+                                    Array(5).fill(0).map((_, i) => (
+                                        <tr key={i}>
+                                            <td colSpan="6">
+                                                <div className="skeleton" style={{ height: 24, borderRadius: 4, background: '#eee', margin: '4px 0' }}></div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : activeTab === 'clients' ? (
                                     clients.map(u => (
                                         <tr key={u.id}>
                                             <td>
