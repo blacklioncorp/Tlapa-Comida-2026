@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOrders } from '../../contexts/OrderContext';
 import { supabase } from '../../supabase';
-import { MapPin, Wallet as WalletIcon, User, LogOut, ChevronRight, Star, Settings, ShieldQuestion, Car, X, Save, Lock } from 'lucide-react';
+import { MapPin, Wallet as WalletIcon, User, LogOut, ChevronRight, Star, Settings, ShieldQuestion, Car, X, Save, Lock, FileText, Camera, Upload } from 'lucide-react';
 
 export default function DriverProfile() {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
     const { orders } = useOrders();
 
-    const [activeModal, setActiveModal] = useState(null); // 'account', 'vehicle', 'help'
+    const [activeModal, setActiveModal] = useState(null); // 'account', 'vehicle', 'documents', 'help'
     const [saving, setSaving] = useState(false);
 
     // Vehicle state (local for editing)
@@ -120,6 +120,24 @@ export default function DriverProfile() {
                             <div style={{ textAlign: 'left' }}>
                                 <span style={{ display: 'block', fontSize: '1rem', fontWeight: 600, color: '#334155' }}>Mi Vehículo</span>
                                 <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{vehicle.model} ({vehicle.plate})</span>
+                            </div>
+                        </div>
+                        <ChevronRight size={20} color="#cbd5e1" />
+                    </button>
+
+                    <button
+                        onClick={() => setActiveModal('documents')}
+                        style={{ width: '100%', padding: '16px 0', border: 'none', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 12, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <FileText size={20} color="#64748b" />
+                            </div>
+                            <div style={{ textAlign: 'left' }}>
+                                <span style={{ display: 'block', fontSize: '1rem', fontWeight: 600, color: '#334155' }}>Mi Documentación</span>
+                                <span style={{ fontSize: '0.8rem', color: user?.verification_status === 'approved' ? '#10b981' : '#f59e0b' }}>
+                                    {user?.verification_status === 'approved' ? '✓ Verificado' : 'Pendiente de validación'}
+                                </span>
                             </div>
                         </div>
                         <ChevronRight size={20} color="#cbd5e1" />
@@ -262,6 +280,89 @@ export default function DriverProfile() {
                                         <Save size={20} />
                                         {saving ? 'Guardando...' : 'Guardar Cambios'}
                                     </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeModal === 'documents' && (
+                            <div>
+                                <div style={{ marginBottom: 24 }}>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 8px' }}>Mi Documentación</h3>
+                                    <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Sube fotos legibles de tus documentos oficiales.</p>
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    {[
+                                        { key: 'ine_frente', label: 'INE Frente' },
+                                        { key: 'ine_vuelta', label: 'INE Vuelta' },
+                                        { key: 'licencia', label: 'Licencia de Conducir' },
+                                        { key: 'rfc', label: 'RFC / Datos Fiscales' }
+                                    ].map((doc) => (
+                                        <div key={doc.key} style={{ 
+                                            padding: '16px', background: '#f8fafc', borderRadius: 16,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            border: '1px solid #e2e8f0'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <FileText size={20} color="#3b82f6" />
+                                                </div>
+                                                <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{doc.label}</span>
+                                            </div>
+                                            
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                {user?.driver_documents?.[doc.key] ? (
+                                                    <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 700 }}>SUBIDO</span>
+                                                ) : (
+                                                    <label style={{ 
+                                                        background: '#1e293b', color: 'white', padding: '6px 12px', 
+                                                        borderRadius: 8, fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' 
+                                                    }}>
+                                                        Subir
+                                                        <input 
+                                                            type="file" 
+                                                            accept="image/*" 
+                                                            style={{ display: 'none' }}
+                                                            onChange={async (e) => {
+                                                                const file = e.target.files[0];
+                                                                if (!file) return;
+                                                                setSaving(true);
+                                                                try {
+                                                                    const fileName = `drivers/${user.id}/${doc.key}_${Date.now()}`;
+                                                                    const { error: uploadError } = await supabase.storage
+                                                                        .from('driver-documents')
+                                                                        .upload(fileName, file);
+                                                                    if (uploadError) throw uploadError;
+
+                                                                    const { data: { publicUrl } } = supabase.storage
+                                                                        .from('driver-documents')
+                                                                        .getPublicUrl(fileName);
+
+                                                                    const updatedDocs = { ...(user.driver_documents || {}), [doc.key]: publicUrl };
+                                                                    await supabase.from('users').update({ 
+                                                                        driver_documents: updatedDocs,
+                                                                        verification_status: 'pending' 
+                                                                    }).eq('id', user.id);
+                                                                    
+                                                                    alert(`${doc.label} subido correctamente.`);
+                                                                } catch (err) {
+                                                                    alert("Error: " + err.message);
+                                                                } finally {
+                                                                    setSaving(false);
+                                                                }
+                                                            }}
+                                                        />
+                                                    </label>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div style={{ marginTop: 24, padding: 16, background: '#fffbeb', borderRadius: 12, border: '1px solid #fde68a' }}>
+                                    <p style={{ fontSize: '0.8rem', color: '#92400e', margin: 0 }}>
+                                        * Una vez subidos todos los documentos, nuestro equipo los revisará en un plazo de 24-48 horas.
+                                    </p>
                                 </div>
                             </div>
                         )}

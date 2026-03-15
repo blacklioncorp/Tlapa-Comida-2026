@@ -9,7 +9,7 @@ import AdminLiveMap from '../../components/AdminLiveMap';
 import AdminSidebar from '../../components/admin/AdminSidebar';
 
 export default function DeliveryManagement() {
-    const { logout } = useAuth();
+    const { user, logout } = useAuth();
     const { orders } = useOrders();
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
@@ -191,8 +191,8 @@ export default function DeliveryManagement() {
                 </div>
 
                 {/* Drivers Table */}
-                <div style={{ background: 'var(--color-surface)', borderRadius: 16, boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
-                    <table className="data-table">
+                <div style={{ background: 'var(--color-surface)', borderRadius: 16, boxShadow: 'var(--shadow-sm)', overflow: 'hidden', padding: '0 20px' }}>
+                    <table className="data-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 12px' }}>
                         <thead>
                             <tr>
                                 <th>Repartidor</th>
@@ -398,28 +398,34 @@ export default function DeliveryManagement() {
                             )}
 
                             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: 8 }}>Registrar pago en oficina (MXN):</label>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                                 <input
                                     type="number"
-                                    className="input"
-                                    style={{ flex: 1 }}
+                                    className="form-input"
+                                    style={{ flex: 1, height: '42px' }}
                                     value={amountPaid}
                                     onChange={(e) => setAmountPaid(e.target.value)}
                                     placeholder="Ej. 500"
                                 />
-                                <button className="btn btn-primary" onClick={async () => {
-                                    if (!amountPaid || isNaN(amountPaid)) return;
-                                    const newBalance = Math.max(0, (selectedDriver.cashInHand || 0) - parseFloat(amountPaid));
-                                    const { error } = await supabase.from('users').update({ 
-                                        cashInHand: newBalance,
-                                        isBlockedDueToCash: newBalance > (selectedDriver.maxCashLimit || 1000)
-                                    }).eq('id', selectedDriver.id);
-                                    if (!error) {
-                                        setAmountPaid('');
-                                        setSelectedDriver(prev => ({ ...prev, cashInHand: newBalance }));
-                                        alert('Abono registrado correctamente');
-                                    }
-                                }}>Abonar</button>
+                                <button 
+                                    className="btn btn-primary" 
+                                    style={{ whiteSpace: 'nowrap', height: '42px' }}
+                                    onClick={async () => {
+                                        if (!amountPaid || isNaN(amountPaid)) return;
+                                        const newBalance = Math.max(0, (selectedDriver.cashInHand || 0) - parseFloat(amountPaid));
+                                        const { error } = await supabase.from('users').update({ 
+                                            cashInHand: newBalance,
+                                            isBlockedDueToCash: newBalance > (selectedDriver.maxCashLimit || 1000)
+                                        }).eq('id', selectedDriver.id);
+                                        if (!error) {
+                                            setAmountPaid('');
+                                            setSelectedDriver(prev => ({ ...prev, cashInHand: newBalance }));
+                                            alert('Abono registrado correctamente');
+                                        }
+                                    }}
+                                >
+                                    Abonar
+                                </button>
                             </div>
                         </div>
 
@@ -456,6 +462,65 @@ export default function DeliveryManagement() {
                                         <FileText size={14} /> {key.replace('_', ' ').toUpperCase()}
                                     </a>
                                 ))}
+                            </div>
+
+                            {/* Manual Document Upload */}
+                            <div style={{ marginBottom: 16, padding: '12px', background: '#f1f5f9', borderRadius: '8px' }}>
+                                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, marginBottom: 8 }}>Subir Documento Manualmente</label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <select 
+                                        id="doc-type-select"
+                                        className="form-input" 
+                                        style={{ fontSize: '0.8rem', height: '36px' }}
+                                    >
+                                        <option value="ine_frente">INE Frente</option>
+                                        <option value="ine_vuelta">INE Vuelta</option>
+                                        <option value="licencia">Licencia de Conducir</option>
+                                        <option value="rfc">RFC / Datos Fiscales</option>
+                                        <option value="seguro">Seguro Vehicular</option>
+                                        <option value="otros">Otros</option>
+                                    </select>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*,.pdf" 
+                                        style={{ fontSize: '0.75rem' }}
+                                        onChange={async (e) => {
+                                            const file = e.target.files[0];
+                                            if (!file) return;
+                                            
+                                            const docType = document.getElementById('doc-type-select').value;
+                                            const fileName = `drivers/${selectedDriver.id}/${docType}_${Date.now()}_${file.name}`;
+                                            
+                                            try {
+                                                const { data, error } = await supabase.storage
+                                                    .from('driver-documents')
+                                                    .upload(fileName, file);
+                                                
+                                                if (error) throw error;
+                                                
+                                                const { data: { publicUrl } } = supabase.storage
+                                                    .from('driver-documents')
+                                                    .getPublicUrl(fileName);
+                                                
+                                                const currentDocs = selectedDriver.driver_documents || {};
+                                                const updatedDocs = { ...currentDocs, [docType]: publicUrl };
+                                                
+                                                const { error: updateError } = await supabase
+                                                    .from('users')
+                                                    .update({ driver_documents: updatedDocs })
+                                                    .eq('id', selectedDriver.id);
+                                                
+                                                if (updateError) throw updateError;
+                                                
+                                                setSelectedDriver(prev => ({ ...prev, driver_documents: updatedDocs }));
+                                                alert("Documento subido correctamente");
+                                            } catch (err) {
+                                                console.error(err);
+                                                alert("Error al subir documento: " + err.message);
+                                            }
+                                        }}
+                                    />
+                                </div>
                             </div>
 
                             <div style={{ display: 'flex', gap: 8 }}>

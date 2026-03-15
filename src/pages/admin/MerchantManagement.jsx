@@ -289,7 +289,7 @@ export default function MerchantManagement() {
                                         <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem', marginBottom: 2 }}>Tiempo (min)</span>
                                         <span style={{ fontWeight: 600 }}>{merchant.deliveryTime || merchant.prepTime} min</span>
                                     </div>
-                                    <div>
+                                    <div style={{ display: 'none' }}>
                                         <span style={{ color: 'var(--color-text-muted)', display: 'block', fontSize: '0.75rem', marginBottom: 2 }}>Costo Envío</span>
                                         <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>${merchant.deliveryFee}</span>
                                     </div>
@@ -401,7 +401,7 @@ export default function MerchantManagement() {
                                         onChange={(e) => setForm({ ...form, deliveryTime: e.target.value })}
                                     />
                                 </div>
-                                <div className="form-group">
+                                <div className="form-group" style={{ display: 'none' }}>
                                     <label className="form-label">Costo de Envío ($)</label>
                                     <input
                                         type="number"

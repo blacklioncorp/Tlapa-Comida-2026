@@ -377,7 +377,7 @@ export default function MerchantSettings() {
                             <input className="form-input" value={form.deliveryTime} onChange={(e) => update('deliveryTime', e.target.value)} placeholder="Ej: 20-30" />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                            <div className="form-group">
+                            <div className="form-group" style={{ display: 'none' }}>
                                 <label className="form-label">Costo de envío ($)</label>
                                 <input className="form-input" type="number" min="0" value={form.deliveryFee}
                                     onChange={(e) => update('deliveryFee', Number(e.target.value))} />
