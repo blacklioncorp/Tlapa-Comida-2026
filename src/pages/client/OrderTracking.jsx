@@ -161,6 +161,29 @@ export default function OrderTracking() {
                                 💵 Pago en efectivo al momento de la entrega — ${order.totals?.total?.toFixed(2)}
                             </p>
                         )}
+                        {!isFinal && order.verificationCode && (
+                            <div style={{
+                                marginTop: 16,
+                                padding: '12px 16px',
+                                background: 'white',
+                                borderRadius: 12,
+                                border: '2px dashed var(--color-primary)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: 4
+                            }}>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
+                                    PIN de Entrega
+                                </span>
+                                <span style={{ fontSize: '1.75rem', fontWeight: 900, color: 'var(--color-primary)', letterSpacing: 6 }}>
+                                    {order.verificationCode}
+                                </span>
+                                <p style={{ fontSize: '0.65rem', color: 'var(--color-text-secondary)', textAlign: 'center', margin: 0 }}>
+                                    Díselo al repartidor para recibir tu comida
+                                </p>
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -328,6 +351,12 @@ export default function OrderTracking() {
                             <span style={{ color: 'var(--color-text-muted)' }}>Envío</span>
                             <span>${order.totals?.deliveryFee?.toFixed?.(2)}</span>
                         </div>
+                        {order.totals?.tip > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 4 }}>
+                                <span style={{ color: 'var(--color-text-muted)' }}>Propina</span>
+                                <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>+${order.totals.tip.toFixed?.(2)}</span>
+                            </div>
+                        )}
                         {order.totals?.discount > 0 && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: 4, color: 'var(--color-success)' }}>
                                 <span>Descuento</span>

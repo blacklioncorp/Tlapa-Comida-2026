@@ -18,6 +18,10 @@ export default function ActiveDelivery() {
     const [cashAmount, setCashAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // Verification PIN state
+    const [showPinModal, setShowPinModal] = useState(false);
+    const [pinInput, setPinInput] = useState('');
+
     // Merchant state
     const [merchant, setMerchant] = useState(null);
 
@@ -42,8 +46,8 @@ export default function ActiveDelivery() {
         if (isProcessing) return;
         setIsProcessing(true);
         try {
-            if (newStatus === 'delivered' && isCash && order.payment?.status !== 'collected') {
-                setShowCashModal(true);
+            if (newStatus === 'delivered') {
+                setShowPinModal(true);
                 setIsProcessing(false);
                 return;
             }
@@ -66,6 +70,30 @@ export default function ActiveDelivery() {
             await recordCashPayment(orderId, amount);
             await updateOrderStatus(orderId, 'delivered', user?.id || 'driver');
             setShowCashModal(false);
+        } catch (err) {
+            alert('Error: ' + err.message);
+        }
+        setIsProcessing(false);
+    };
+
+    const handlePinConfirm = async () => {
+        if (pinInput !== order.verificationCode) {
+            alert('PIN incorrecto. Por favor, solicítalo al cliente.');
+            return;
+        }
+        
+        setShowPinModal(false);
+        
+        // If cash, show cash modal next
+        if (isCash && order.payment?.status !== 'collected') {
+            setShowCashModal(true);
+            return;
+        }
+        
+        // If already collected or digital payment, complete order
+        setIsProcessing(true);
+        try {
+            await updateOrderStatus(orderId, 'delivered', user?.id || 'driver');
         } catch (err) {
             alert('Error: ' + err.message);
         }
@@ -301,6 +329,40 @@ export default function ActiveDelivery() {
                             {isProcessing ? 'Procesando...' : 'Confirmar Cobro'}
                         </button>
                         <button onClick={() => setShowCashModal(false)} style={{
+                            width: '100%', padding: 18, background: 'transparent', color: '#a1a1aa', border: 'none', borderRadius: 16, fontSize: '1rem', fontWeight: 600, cursor: 'pointer'
+                        }}>
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            )}
+            {/* PIN Modal Overlay */}
+            {showPinModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+                    <div style={{ background: '#1c1c1e', borderRadius: 24, width: '100%', maxWidth: 400, padding: 24, color: 'white', border: '1px solid #3f3f46', textAlign: 'center' }}>
+                        <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--color-primary-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', border: '2px solid var(--color-primary)' }}>
+                            <ShieldAlert size={32} color="var(--color-primary)" />
+                        </div>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 8px 0' }}>Verificar Entrega</h2>
+                        <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: 24 }}>Ingresa el PIN de 4 dígitos proporcionado por el cliente</p>
+                        
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={4}
+                            value={pinInput}
+                            onChange={e => setPinInput(e.target.value.replace(/\D/g, ''))}
+                            placeholder="0000"
+                            style={{ width: '100%', padding: '16px 20px', background: '#27272a', border: '2px solid #3f3f46', borderRadius: 16, color: 'white', fontSize: '2.5rem', fontWeight: 900, outline: 'none', marginBottom: 24, textAlign: 'center', letterSpacing: 10 }}
+                            autoFocus
+                        />
+
+                        <button onClick={handlePinConfirm} disabled={pinInput.length !== 4} style={{
+                            width: '100%', padding: 18, background: pinInput.length === 4 ? '#ea580c' : '#3f3f46', color: 'white', border: 'none', borderRadius: 16, fontSize: '1.1rem', fontWeight: 700, cursor: pinInput.length === 4 ? 'pointer' : 'not-allowed', marginBottom: 12
+                        }}>
+                            Confirmar PIN
+                        </button>
+                        <button onClick={() => setShowPinModal(false)} style={{
                             width: '100%', padding: 18, background: 'transparent', color: '#a1a1aa', border: 'none', borderRadius: 16, fontSize: '1rem', fontWeight: 600, cursor: 'pointer'
                         }}>
                             Cancelar

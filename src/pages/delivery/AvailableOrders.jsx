@@ -308,7 +308,7 @@ export default function AvailableOrders() {
                                             </div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ea580c', margin: 0 }}>${(order.totals.deliveryFee + (isRaining ? weather?.condition?.deliverySurcharge || 0 : 0)).toFixed(2)}</h3>
+                                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ea580c', margin: 0 }}>${(order.totals.deliveryFee + (order.totals?.tip || 0) + (isRaining ? weather?.condition?.deliverySurcharge || 0 : 0)).toFixed(2)}</h3>
                                             <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', margin: 0 }}>TU PAGO</p>
                                         </div>
                                     </div>

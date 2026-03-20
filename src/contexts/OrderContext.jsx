@@ -160,15 +160,17 @@ export function OrderProvider({ children }) {
     // ═══════════════════════════════════════════════
     // Create Order
     // ═══════════════════════════════════════════════
-    const createOrder = async ({ clientId, merchantId, items, deliveryAddress, paymentMethod, deliveryFee, serviceFee, discount = 0, notes = '' }) => {
+    const createOrder = async ({ clientId, merchantId, items, deliveryAddress, paymentMethod, deliveryFee, serviceFee, discount = 0, tip = 0, notes = '' }) => {
         const subtotal = items.reduce((sum, item) => sum + calculateItemSubtotal(item), 0);
-        const total = subtotal + deliveryFee + serviceFee - discount;
+        const total = subtotal + deliveryFee + serviceFee - discount + tip;
+        const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
 
         const orderData = {
             orderNumber: generateUniqueOrderNumber(),
             clientId,
             merchantId,
             driverId: null,
+            verificationCode,
             // Cash: order starts as "created" — payment happens on delivery
             // Digital: order starts as "created" — payment validated separately
             status: 'created',
@@ -176,7 +178,7 @@ export function OrderProvider({ children }) {
                 ...item,
                 subtotal: calculateItemSubtotal(item),
             })),
-            totals: { subtotal, deliveryFee, serviceFee, discount, total },
+            totals: { subtotal, deliveryFee, serviceFee, discount, tip, total },
             payment: {
                 method: paymentMethod,
                 status: paymentMethod === 'cash' ? 'pending_cash' : 'pending',

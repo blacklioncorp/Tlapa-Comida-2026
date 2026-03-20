@@ -8,7 +8,7 @@ import { usePromotions } from '../../contexts/PromotionContext';
 import { supabase } from '../../supabase';
 import { adjustedDeliveryFee } from '../../services/WeatherService';
 import { calculateDynamicPricing } from '../../services/PricingService';
-import { ArrowLeft, Minus, Plus, Trash2, MapPin, CreditCard, Banknote, Tag, AlertTriangle, WifiOff, Edit3, Info } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Trash2, MapPin, CreditCard, Banknote, Tag, AlertTriangle, WifiOff, Edit3, Info, Heart, Coins } from 'lucide-react';
 import WeatherBanner from '../../components/WeatherBanner';
 import SmartETADisplay from '../../components/SmartETADisplay';
 import MerchantLoadBadge from '../../components/MerchantLoadBadge';
@@ -31,6 +31,8 @@ export default function Checkout() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [submitError, setSubmitError] = useState('');
+    const [tip, setTip] = useState(0);
+    const tipOptions = [10, 15, 20, 30];
 
     // Dynamic Pricing state
     const [pricingDetails, setPricingDetails] = useState({
@@ -104,7 +106,7 @@ export default function Checkout() {
     const deliveryFee = pricingDetails.finalFee;
     const weatherSurcharge = deliveryFee - pricingDetails.baseFee;
     const serviceFee = Math.round(subtotal * 0.05);
-    const total = subtotal + deliveryFee + serviceFee - discount;
+    const total = subtotal + deliveryFee + serviceFee - discount + tip;
 
     // Validation
     const addressValid = deliveryAddress?.street?.trim().length >= 3;
@@ -163,6 +165,7 @@ export default function Checkout() {
                 deliveryFee,
                 serviceFee,
                 discount,
+                tip,
                 notes: notes || '',
             };
 
@@ -465,6 +468,59 @@ export default function Checkout() {
                 {couponSuccess && (
                     <p style={{ color: 'var(--color-success)', fontSize: '0.8rem', marginTop: -16, marginBottom: 16 }}>{couponSuccess}</p>
                 )}
+                
+                {/* ═══ Driver Tip ═══ */}
+                <div style={{ marginBottom: 28 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                        <Heart size={18} color="var(--color-primary)" fill="var(--color-primary)" />
+                        <h3 style={{ fontWeight: 700, margin: 0 }}>Propina para el repartidor</h3>
+                    </div>
+                    
+                    <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(5, 1fr)', 
+                        gap: 8 
+                    }}>
+                        {tipOptions.map(option => (
+                            <button
+                                key={option}
+                                onClick={() => setTip(tip === option ? 0 : option)}
+                                style={{
+                                    padding: '12px 4px',
+                                    borderRadius: 12,
+                                    border: `2px solid ${tip === option ? 'var(--color-primary)' : 'var(--color-border-light)'}`,
+                                    background: tip === option ? 'var(--color-primary-bg)' : 'white',
+                                    color: tip === option ? 'var(--color-primary)' : 'var(--color-text-main)',
+                                    fontWeight: 700,
+                                    fontSize: '0.85rem',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                ${option}
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => {
+                                const val = prompt("Ingresa el monto de la propina:");
+                                if (val && !isNaN(val)) setTip(Number(val));
+                            }}
+                            style={{
+                                padding: '12px 4px',
+                                borderRadius: 12,
+                                border: `2px solid ${!tipOptions.includes(tip) && tip > 0 ? 'var(--color-primary)' : 'var(--color-border-light)'}`,
+                                background: !tipOptions.includes(tip) && tip > 0 ? 'var(--color-primary-bg)' : 'white',
+                                color: !tipOptions.includes(tip) && tip > 0 ? 'var(--color-primary)' : 'var(--color-text-main)',
+                                fontWeight: 700,
+                                fontSize: '0.85rem'
+                            }}
+                        >
+                            {(!tipOptions.includes(tip) && tip > 0) ? `$${tip}` : 'Otro'}
+                        </button>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 10 }}>
+                        El 100% de la propina es para el repartidor.
+                    </p>
+                </div>
 
                 {/* Summary */}
                 <div style={{
@@ -494,6 +550,12 @@ export default function Checkout() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.875rem', color: 'var(--color-success)' }}>
                             <span>Descuento</span>
                             <span style={{ fontWeight: 600 }}>-${discount.toFixed(2)}</span>
+                        </div>
+                    )}
+                    {tip > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.875rem' }}>
+                            <span style={{ color: 'var(--color-text-secondary)' }}>Propina</span>
+                            <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>+${tip.toFixed(2)}</span>
                         </div>
                     )}
                     <div style={{ borderTop: '2px solid var(--color-border)', paddingTop: 12, marginTop: 8, display: 'flex', justifyContent: 'space-between' }}>
