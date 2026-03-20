@@ -77,7 +77,7 @@ export default function OrdersManagement() {
                         <div>
                             <h1 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Gestión de Pedidos</h1>
                             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-                                {orders.length} pedidos registrados · {activeCount} activos
+                                {orders.length} pedidos registrados · {activeOrders.length} activos
                             </p>
                         </div>
                     </div>

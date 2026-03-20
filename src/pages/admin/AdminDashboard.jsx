@@ -23,6 +23,7 @@ export default function AdminDashboard() {
         return new Date(o.createdAt).toDateString() === today;
     }).length;
 
+    const [merchants, setMerchants] = useState([]);
     const [drivers, setDrivers] = useState([]);
     useEffect(() => {
         supabase.from('merchants').select('*').then(({ data }) => setMerchants(data || []));
