@@ -15,6 +15,7 @@ export default function Wallet() {
     const [isLoading, setIsLoading] = useState(true);
 
     const balance = user?.walletBalance || 0;
+    const withdrawable = balance;
 
     useEffect(() => {
         if (!user) return;

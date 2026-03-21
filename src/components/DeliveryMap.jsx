@@ -46,9 +46,11 @@ export default function DeliveryMap({
     const [routeInfo, setRouteInfo] = useState(null);
 
     const merchantCoords = getMerchantCoords(merchantId);
-    const deliveryCoords = deliveryAddress?.lat && deliveryAddress?.lng
+    const deliveryCoords = (deliveryAddress?.lat && deliveryAddress?.lng)
         ? { lat: deliveryAddress.lat, lng: deliveryAddress.lng }
-        : getDefaultDeliveryCoords();
+        : (deliveryAddress?.location?.lat && deliveryAddress?.location?.lng)
+            ? { lat: deliveryAddress.location.lat, lng: deliveryAddress.location.lng }
+            : getDefaultDeliveryCoords();
 
     // ── Initialize the map ──────────────────────
     const initMap = useCallback(async () => {
